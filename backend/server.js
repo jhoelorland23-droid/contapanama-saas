@@ -17,6 +17,7 @@ const motorRoutes        = require('./routes/motor');
 const contabilidadRoutes = require('./routes/contabilidad');
 const prestamosRoutes    = require('./routes/prestamos');
 const erroresRoutes      = require('./routes/errores');
+const billingRoutes      = require('./routes/billing');
 const { authMiddleware } = require('./middleware/auth');
 
 const app  = express();
@@ -29,8 +30,12 @@ const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:5173',
   'https://contapanama.com',
   'https://www.contapanama.com',
+  'https://frontend-jhoelorland23-5362s-projects.vercel.app',
   'http://localhost:5173',
   'http://localhost:5174',
+  'capacitor://localhost',
+  'ionic://localhost',
+  'http://localhost',
 ];
 app.use(cors({
   origin: (origin, cb) => {
@@ -120,6 +125,7 @@ app.use('/api/motor',         motorRoutes);
 app.use('/api/contabilidad',  contabilidadRoutes);
 app.use('/api/prestamos',     prestamosRoutes);
 app.use('/api/errores',       erroresRoutes);
+app.use('/api/billing',       billingRoutes);
 
 // ─── 404 + ERROR HANDLER ──────────────────────────────────────────────────────
 app.use((req, res) => res.status(404).json({ error: `Ruta no encontrada: ${req.method} ${req.path}` }));

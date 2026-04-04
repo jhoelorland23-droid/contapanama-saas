@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, createContext, useContext } from "react";
+import PricingView from "./PricingView";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  API LAYER — todas las llamadas al backend centralizadas
@@ -311,6 +312,7 @@ const NAV = [
   {id:"calidad",      label:"Control Calidad",  icon:"shield"},
   {id:"reportes",     label:"Reportes PDF",     icon:"report"},
   {id:"alertas",      label:"Alertas",          icon:"bell"},
+  {id:"precios",      label:"Planes y Precios", icon:"dollar"},
 ];
 
 const Sidebar = ({active,setActive}) => {
@@ -2849,6 +2851,7 @@ const AppShell = () => {
     calidad:       <CalidadView/>,
     reportes:      <ReportesView/>,
     alertas:       <AlertasView/>,
+    precios:       <PricingView token={user?.token} currentPlan={user?.plan||'gratis'}/>,
   };
 
   return (
