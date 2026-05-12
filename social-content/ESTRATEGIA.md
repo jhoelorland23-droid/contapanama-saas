@@ -3,64 +3,105 @@
 
 ---
 
-## Objetivo
-Posicionar a ContaPanamá como la plataforma contable líder en Panamá que integra
-IA para automatizar el trabajo de CPAs y contadores, captando leads y generando autoridad.
+## Concepto Central
+**"El CPA panameño que usa IA para trabajar mejor"**
+
+No es marketing de software. Es una marca personal profesional:
+mostrar los workflows reales de un contador moderno que integra
+IA (Claude, ChatGPT, Notion, ContaPanamá) en su práctica diaria.
+
+Referencia de estilo: @soyenriquerocha — educación sobre IA,
+sin vender directamente, construyendo autoridad primero.
+
+---
+
+## Formato de Producción
+- **Sin cámara** — solo pantalla + texto en pantalla
+- Grabación de pantalla con anotaciones visuales
+- Texto animado (CapCut, Canva, Adobe Express)
+- Voz en off opcional (recomendada para TikTok)
+
+---
 
 ## Audiencia
 | Segmento | Perfil |
 |----------|--------|
-| **Primario** | CPAs y contadores independientes en Panamá (25-45 años) |
-| **Secundario** | Dueños de PYMES que buscan optimizar su contabilidad |
-| **Terciario** | Estudiantes de contabilidad / futuros CPAs |
+| **Primario** | CPAs y contadores en Panamá (25-45 años) |
+| **Secundario** | Dueños de PYMES panameñas |
+| **Terciario** | Estudiantes de contabilidad |
 
-## Pilares de Contenido
-1. **Educación** — Cómo la IA transforma la contabilidad diaria
-2. **Demo** — Funciones reales de ContaPanamá en acción
-3. **Tendencias** — IA global aplicada a finanzas / casos internacionales
-4. **Motivación** — El CPA del futuro no fue reemplazado, fue potenciado
-5. **Detrás de cámaras** — Proceso de construcción del producto
+---
+
+## 5 Pilares de Contenido
+
+### 1. Workflow de IA (40% del contenido)
+"Así uso Claude/ChatGPT/Notion en mi trabajo contable"
+→ Pantalla real, paso a paso, resultado concreto
+
+### 2. Demo de ContaPanamá (20% del contenido)
+"Esto que antes tardaba horas, ahora lo hago en segundos"
+→ Screen recording del software en acción
+
+### 3. Educación fiscal Panamá (20% del contenido)
+"ITBMS en 60 seg", "Fechas DGI que tienes que saber"
+→ Slides animados o pantalla con explicación
+
+### 4. Comparativo / Tendencia (10% del contenido)
+"Antes vs ahora", "¿La IA reemplaza al CPA?"
+→ Carrusel o texto en pantalla
+
+### 5. Caso de uso real (10% del contenido)
+"Así preparé el reporte de un cliente con IA en 10 min"
+→ Screen recording del flujo completo
+
+---
+
+## Herramientas a Mostrar en Contenido
+1. **Claude** — análisis de documentos, borradores de informes
+2. **ChatGPT** — consultas fiscales rápidas, templates
+3. **Notion AI** — organización de cartera, base de conocimiento
+4. **ContaPanamá** — ITBMS, reportes PDF, calendario fiscal
+
+---
 
 ## Frecuencia Recomendada
-- **Instagram**: 4-5 posts/semana (2 Reels + 2 carruseles + 1 historia interactiva)
-- **TikTok**: 3-4 videos/semana (formato educativo + demo + trending audio)
+- **Instagram**: 4 posts/semana (3 carruseles + 1 reel de pantalla)
+- **TikTok**: 3-4 videos/semana (screen recordings con texto)
 
-## Tono de Voz
-- Profesional pero accesible
-- Confiante (somos la solución panameña)
-- Nunca alarmista sobre el futuro del trabajo
-- Orientado a soluciones, no a problemas
+---
 
 ## Hashtags Principales
+
 ### Instagram
 ```
-#ContaPanamá #IAContable #ContabilidadIA #CPAPanamá
-#TechFinanciero #FinTechLatam #AutomatizaciónContable
-#ContabilidadDigital #PanamáTech #CPADigital
+#ContabilidadIA #CPAPanamá #IAenContabilidad
+#ClaudeAI #ChatGPTContabilidad #NotionIA
+#ContaPanamá #CPADigital #ContabilidadDigital
+#PanamáTech #WorkflowIA #AutomatizaciónContable
 ```
 
 ### TikTok
 ```
-#ContabilidadIA #CPAlife #TechContable #PanamáEmprendedor
-#IAenNegocios #FinanzasDigitales #AutomatizaTuTrabajo
-#CPAPanamá #EmprendimientoPanameño
+#ContabilidadIA #CPAlife #CPAPanamá #IAworkflow
+#ClaudeAI #ChatGPT #NotionAI #PanamáEmprendedor
+#WorkflowIA #ContadorDigital #TechContable
 ```
 
 ---
 
 ## Calendario Editorial — Mes 1
 
-| Semana | Día | Plataforma | Tipo | Tema |
-|--------|-----|-----------|------|------|
-| 1 | Lun | Instagram | Carrusel | 5 tareas contables que la IA ya hace por ti |
-| 1 | Mié | TikTok | Demo | ITBMS calculado en segundos con ContaPanamá |
-| 1 | Vie | Instagram | Reel | ¿La IA reemplazará a los contadores? |
-| 2 | Lun | TikTok | Edu | Qué es un diario contable automatizado |
-| 2 | Mié | Instagram | Carrusel | Antes vs Después: CPA sin IA vs CPA con IA |
-| 2 | Vie | TikTok | Demo | Generar un PDF fiscal en 10 segundos |
-| 3 | Lun | Instagram | Reel | Error #1 de los contadores panameños en DGI |
-| 3 | Mié | TikTok | Trending | POV: eres CPA y descubres ContaPanamá |
-| 3 | Vie | Instagram | Carrusel | 7 señales de que necesitas software contable |
-| 4 | Lun | TikTok | Edu | ITBMS explicado en 60 segundos |
-| 4 | Mié | Instagram | Reel | Un día en la vida de un CPA con IA |
-| 4 | Vie | TikTok | Demo | Reporte fiscal generado con IA |
+| Semana | Día | Plataforma | Pilar | Tema |
+|--------|-----|-----------|-------|------|
+| 1 | Lun | Instagram | Workflow IA | Cómo uso Claude para analizar estados financieros |
+| 1 | Mié | TikTok | Demo | ITBMS calculado en segundos — ContaPanamá |
+| 1 | Vie | Instagram | Comparativo | CPA 2020 vs CPA 2025 |
+| 2 | Lun | TikTok | Workflow IA | Le pido a ChatGPT que revise un contrato de arrendamiento |
+| 2 | Mié | Instagram | Edu Fiscal | ITBMS en 60 segundos |
+| 2 | Vie | TikTok | Demo | Generar PDF fiscal con ContaPanamá |
+| 3 | Lun | Instagram | Workflow IA | Cómo organizo mi cartera con Notion AI |
+| 3 | Mié | TikTok | Caso real | Preparo el reporte de un cliente en 10 minutos con IA |
+| 3 | Vie | Instagram | Comparativo | 7 señales de que necesitas software contable |
+| 4 | Lun | TikTok | Edu Fiscal | Fechas DGI que todo CPA debe saber |
+| 4 | Mié | Instagram | Workflow IA | 3 prompts de Claude que uso cada semana |
+| 4 | Vie | TikTok | Tendencia | ¿La IA reemplaza al contador panameño? |
