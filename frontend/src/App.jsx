@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, createContext, useContext } from "react";
 import PricingView from "./PricingView";
+import SocialMediaView from "./SocialMediaView";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  API LAYER — todas las llamadas al backend centralizadas
@@ -312,6 +313,7 @@ const NAV = [
   {id:"calidad",      label:"Control Calidad",  icon:"shield"},
   {id:"reportes",     label:"Reportes PDF",     icon:"report"},
   {id:"alertas",      label:"Alertas",          icon:"bell"},
+  {id:"social",       label:"Redes Sociales",   icon:"trending"},
   {id:"precios",      label:"Planes y Precios", icon:"dollar"},
 ];
 
@@ -2851,6 +2853,7 @@ const AppShell = () => {
     calidad:       <CalidadView/>,
     reportes:      <ReportesView/>,
     alertas:       <AlertasView/>,
+    social:        <SocialMediaView/>,
     precios:       <PricingView token={user?.token} currentPlan={user?.plan||'gratis'}/>,
   };
 
