@@ -18,6 +18,8 @@ const contabilidadRoutes = require('./routes/contabilidad');
 const prestamosRoutes    = require('./routes/prestamos');
 const erroresRoutes      = require('./routes/errores');
 const billingRoutes      = require('./routes/billing');
+const leadsRoutes        = require('./routes/leads');
+const whatsappRoutes     = require('./routes/whatsapp');
 const { authMiddleware } = require('./middleware/auth');
 
 const app  = express();
@@ -126,6 +128,8 @@ app.use('/api/contabilidad',  contabilidadRoutes);
 app.use('/api/prestamos',     prestamosRoutes);
 app.use('/api/errores',       erroresRoutes);
 app.use('/api/billing',       billingRoutes);
+app.use('/api/leads',        leadsRoutes);
+app.use('/api/whatsapp',     whatsappRoutes);
 
 // ─── 404 + ERROR HANDLER ──────────────────────────────────────────────────────
 app.use((req, res) => res.status(404).json({ error: `Ruta no encontrada: ${req.method} ${req.path}` }));

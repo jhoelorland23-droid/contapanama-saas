@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, createContext, useContext } from "react";
 import PricingView from "./PricingView";
+import LeadsView   from "./LeadsView";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  API LAYER — todas las llamadas al backend centralizadas
@@ -302,6 +303,7 @@ const AuthScreen = () => {
 // ═══════════════════════════════════════════════════════════════════════════
 const NAV = [
   {id:"dashboard",    label:"Dashboard",        icon:"dashboard"},
+  {id:"leads",        label:"WhatsApp & Leads",  icon:"trending", badge:"💬"},
   {id:"flujo",        label:"Flujo de Trabajo",  icon:"trending"},
   {id:"clientes",     label:"Clientes",         icon:"users"},
   {id:"transacciones",label:"Diario Contable",  icon:"journal"},
@@ -333,11 +335,18 @@ const Sidebar = ({active,setActive}) => {
       <div style={{padding:"0 12px",flex:1,overflowY:"auto"}}>
         {NAV.map(item=>{
           const on=active===item.id;
+          const isWa=item.id==="leads";
           return (
             <button key={item.id} onClick={()=>setActive(item.id)}
-              style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 12px",borderRadius:8,border:"none",cursor:"pointer",marginBottom:2,background:on?"#0e3a5c":"transparent",color:on?"#e0f2fe":"#94a3b8",fontWeight:on?600:400,fontSize:14,textAlign:"left",fontFamily:"inherit"}}>
-              <Icon name={item.icon} size={17} color={on?C.accent:"#64748b"}/>
+              style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 12px",borderRadius:8,border:"none",cursor:"pointer",marginBottom:2,
+                      background:on?(isWa?"#064e3b":"#0e3a5c"):isWa?"rgba(37,211,102,0.08)":"transparent",
+                      color:on?(isWa?"#6ee7b7":"#e0f2fe"):(isWa?"#25D366":"#94a3b8"),
+                      fontWeight:on||isWa?600:400,fontSize:14,textAlign:"left",fontFamily:"inherit"}}>
+              {isWa
+                ? <span style={{fontSize:15,lineHeight:1}}>💬</span>
+                : <Icon name={item.icon} size={17} color={on?C.accent:(isWa?"#25D366":"#64748b")}/>}
               {item.label}
+              {isWa&&!on&&<span style={{marginLeft:"auto",background:"#25D366",color:"#fff",borderRadius:10,padding:"1px 6px",fontSize:10,fontWeight:700}}>NEW</span>}
             </button>
           );
         })}
@@ -2841,6 +2850,7 @@ const AppShell = () => {
 
   const VIEWS = {
     dashboard:     <DashboardView/>,
+    leads:         <LeadsView/>,
     flujo:         <FlujoView/>,
     clientes:      <ClientesView/>,
     transacciones: <TransaccionesView/>,
