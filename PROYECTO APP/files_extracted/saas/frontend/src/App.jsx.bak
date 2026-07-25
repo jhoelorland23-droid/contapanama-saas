@@ -1,0 +1,1279 @@
+import { useState, useEffect, useCallback, createContext, useContext } from "react";
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  API LAYER — todas las llamadas al backend centralizadas
+// ═══════════════════════════════════════════════════════════════════════════
+const API_URL = import.meta.env.VITE_API_URL || "";
+
+const apiFetch = async (path, opts = {}) => {
+  const token = localStorage.getItem("cp_token");
+  const headers = { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+  const res = await fetch(`${API_URL}${path}`, { ...opts, headers: { ...headers, ...opts.headers } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+  return data;
+};
+
+const api = {
+  get:    path        => apiFetch(path),
+  post:   (path, body)=> apiFetch(path, { method: "POST",   body: JSON.stringify(body) }),
+  put:    (path, body)=> apiFetch(path, { method: "PUT",    body: JSON.stringify(body) }),
+  patch:  (path, body)=> apiFetch(path, { method: "PATCH",  body: JSON.stringify(body) }),
+  delete: path        => apiFetch(path, { method: "DELETE" }),
+  pdf:    async (path) => {
+    const token = localStorage.getItem("cp_token");
+    const res   = await fetch(`${API_URL}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) { const d = await res.json().catch(()=>({})); throw new Error(d.error||"Error PDF"); }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url; a.download = path.split("/").pop().split("?")[0] + ".pdf";
+    a.click(); URL.revokeObjectURL(url);
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  AUTH CONTEXT
+// ═══════════════════════════════════════════════════════════════════════════
+const AuthCtx = createContext(null);
+const useAuth = () => useContext(AuthCtx);
+
+const AuthProvider = ({ children }) => {
+  const [user, setUser]     = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const token = localStorage.getItem("cp_token");
+    if (!token) { setLoading(false); return; }
+    api.get("/api/auth/me")
+      .then(u => setUser(u))
+      .catch(() => localStorage.removeItem("cp_token"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const login = async (email, password) => {
+    const { token, user } = await api.post("/api/auth/login", { email, password });
+    localStorage.setItem("cp_token", token);
+    setUser(user);
+  };
+
+  const register = async (nombre, email, password) => {
+    const { token, user } = await api.post("/api/auth/register", { nombre, email, password });
+    localStorage.setItem("cp_token", token);
+    setUser(user);
+  };
+
+  const logout = () => {
+    localStorage.removeItem("cp_token");
+    setUser(null);
+  };
+
+  return (
+    <AuthCtx.Provider value={{ user, loading, login, register, logout }}>
+      {children}
+    </AuthCtx.Provider>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  DESIGN TOKENS
+// ═══════════════════════════════════════════════════════════════════════════
+const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');`;
+
+const C = {
+  nav:"#0f1923", navActive:"#0e3a5c", accent:"#0ea5e9",
+  bg:"#f0f4f8", surface:"#ffffff", surfaceAlt:"#f8fafc", border:"#e2e8f0",
+  text:"#0f172a", textMuted:"#64748b", textLight:"#94a3b8",
+  success:"#10b981", successBg:"#ecfdf5", successText:"#065f46",
+  warning:"#f59e0b", warningBg:"#fffbeb", warningText:"#92400e",
+  danger:"#ef4444",  dangerBg:"#fef2f2",  dangerText:"#991b1b",
+  info:"#0ea5e9",    infoBg:"#f0f9ff",    infoText:"#0c4a6e",
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+const fmt = n => new Intl.NumberFormat("es-PA",{style:"currency",currency:"USD"}).format(n||0);
+const fmtDate = d => d ? String(d).slice(0,10) : "—";
+
+const estadoBadge = e => {
+  const m = { activo:[C.successBg,C.successText], inactivo:["#f1f5f9","#475569"], omiso:[C.dangerBg,C.dangerText] };
+  const [bg,color] = m[e]||m.inactivo;
+  return {background:bg,color,padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:600,display:"inline-block",textTransform:"uppercase"};
+};
+const urgBadge = u => {
+  const m = {critica:[C.dangerBg,C.dangerText],alta:[C.warningBg,C.warningText],media:[C.infoBg,C.infoText],baja:["#f8fafc",C.textMuted]};
+  const [bg,color] = m[u]||m.baja;
+  return {background:bg,color,padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:600,display:"inline-block",textTransform:"uppercase"};
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ICONS
+// ═══════════════════════════════════════════════════════════════════════════
+const PATHS = {
+  dashboard:"M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6",
+  users:"M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z",
+  journal:"M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+  tax:"M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z",
+  report:"M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+  bell:"M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9",
+  plus:"M12 4v16m8-8H4", check:"M5 13l4 4L19 7", x:"M6 18L18 6M6 6l12 12",
+  search:"M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z",
+  edit:"M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z",
+  trash:"M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
+  dollar:"M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+  trending:"M13 7h8m0 0v8m0-8l-8 8-4-4-6 6",
+  logout:"M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1",
+  lock:"M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z",
+  pdf:"M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z",
+  refresh:"M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
+  bank:"M3 6l9-3 9 3M3 6v12l9 3 9-3V6",
+};
+const Icon = ({name,size=18,color="currentColor"}) => (
+  <svg width={size} height={size} fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+    <path d={PATHS[name]||""}/>
+  </svg>
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  UI ATOMS
+// ═══════════════════════════════════════════════════════════════════════════
+const Card = ({children,style={}}) => (
+  <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:"20px 24px",...style}}>{children}</div>
+);
+
+const KpiCard = ({label,value,sub,icon,color=C.accent}) => (
+  <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:"20px 24px",display:"flex",alignItems:"flex-start",gap:16}}>
+    <div style={{width:44,height:44,borderRadius:10,background:color+"18",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+      <Icon name={icon} size={20} color={color}/>
+    </div>
+    <div>
+      <div style={{fontSize:13,color:C.textMuted,marginBottom:4,fontWeight:500}}>{label}</div>
+      <div style={{fontSize:22,fontWeight:700,color:C.text,lineHeight:1}}>{value}</div>
+      {sub&&<div style={{fontSize:12,color:C.textLight,marginTop:4}}>{sub}</div>}
+    </div>
+  </div>
+);
+
+const Spinner = ({text="Cargando..."}) => (
+  <div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"60px 0",gap:10,color:C.textMuted,fontSize:14}}>
+    <Icon name="refresh" size={18} color={C.textMuted}/>{text}
+  </div>
+);
+
+const ErrBox = ({msg,onRetry}) => (
+  <div style={{background:C.dangerBg,border:`1px solid ${C.danger}33`,borderLeft:`4px solid ${C.danger}`,borderRadius:8,padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,fontSize:13,color:C.dangerText}}>
+    <span>⚠ {msg}</span>
+    {onRetry&&<button onClick={onRetry} style={{background:C.danger,color:"#fff",border:"none",padding:"6px 14px",borderRadius:6,cursor:"pointer",fontSize:12,fontFamily:"inherit",fontWeight:600}}>Reintentar</button>}
+  </div>
+);
+
+const inpSt = {width:"100%",padding:"9px 12px",border:`1px solid ${C.border}`,borderRadius:8,fontSize:14,color:C.text,background:C.surfaceAlt,boxSizing:"border-box",outline:"none",fontFamily:"inherit"};
+const lblSt = {display:"block",fontSize:12,fontWeight:600,color:C.textMuted,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.04em"};
+const Fld   = ({label,children}) => <div style={{marginBottom:16}}><label style={lblSt}>{label}</label>{children}</div>;
+
+const Btn = ({children,onClick,variant="primary",loading=false,style={},...p}) => {
+  const styles = {
+    primary:  {background:C.accent,color:"#fff",border:"none"},
+    secondary:{background:"none",color:C.textMuted,border:`1px solid ${C.border}`},
+    danger:   {background:C.danger,color:"#fff",border:"none"},
+    success:  {background:C.success,color:"#fff",border:"none"},
+    ghost:    {background:"none",color:C.accent,border:`1px solid ${C.accent}`},
+  };
+  return (
+    <button onClick={onClick} disabled={loading} {...p}
+      style={{padding:"9px 20px",borderRadius:8,fontWeight:600,fontSize:14,cursor:loading?"wait":"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:6,opacity:loading?0.7:1,...styles[variant],...style}}>
+      {loading?"Procesando...":children}
+    </button>
+  );
+};
+
+const Modal = ({title,onClose,children,width=540}) => (
+  <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+    <div style={{background:C.surface,borderRadius:16,width:"100%",maxWidth:width,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.25)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"20px 24px",borderBottom:`1px solid ${C.border}`,position:"sticky",top:0,background:C.surface,zIndex:1}}>
+        <div style={{fontSize:16,fontWeight:700,color:C.text}}>{title}</div>
+        <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:C.textMuted,padding:4}}>
+          <Icon name="x" size={18}/>
+        </button>
+      </div>
+      <div style={{padding:24}}>{children}</div>
+    </div>
+  </div>
+);
+
+const TH = ({children,right}) => (
+  <th style={{padding:"12px 16px",textAlign:right?"right":"left",fontSize:11,fontWeight:700,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.05em",borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"}}>
+    {children}
+  </th>
+);
+const TD = ({children,style={}}) => (
+  <td style={{padding:"12px 16px",fontSize:13,color:C.text,borderBottom:`1px solid ${C.border}`,...style}}>{children}</td>
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  LOGIN / REGISTER SCREEN
+// ═══════════════════════════════════════════════════════════════════════════
+const AuthScreen = () => {
+  const { login, register } = useAuth();
+  const [mode, setMode]   = useState("login");
+  const [form, setForm]   = useState({ nombre:"", email:"", password:"" });
+  const [err,  setErr]    = useState("");
+  const [busy, setBusy]   = useState(false);
+
+  const handleSubmit = async () => {
+    setErr(""); setBusy(true);
+    try {
+      if (mode === "login")    await login(form.email, form.password);
+      else                     await register(form.nombre, form.email, form.password);
+    } catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  };
+
+  const onKey = e => e.key === "Enter" && handleSubmit();
+
+  return (
+    <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f1923 0%,#0e3a5c 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{background:C.surface,borderRadius:20,padding:"44px 48px",width:"100%",maxWidth:440,boxShadow:"0 24px 80px rgba(0,0,0,0.4)"}}>
+        {/* Logo */}
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:36}}>
+          <div style={{width:46,height:46,background:C.accent,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <Icon name="dollar" size={22} color="#fff"/>
+          </div>
+          <div>
+            <div style={{fontSize:20,fontWeight:800,color:C.text}}>ContaPanamá</div>
+            <div style={{fontSize:12,color:C.textMuted}}>Sistema Contable SaaS</div>
+          </div>
+        </div>
+
+        <div style={{fontSize:22,fontWeight:700,color:C.text,marginBottom:6}}>
+          {mode==="login"?"Iniciar sesión":"Crear cuenta"}
+        </div>
+        <div style={{fontSize:14,color:C.textMuted,marginBottom:28}}>
+          {mode==="login"?"Accede a tu plataforma contable":"Registra tu cuenta de contador"}
+        </div>
+
+        {err && <ErrBox msg={err}/>}
+
+        {mode==="register" && (
+          <Fld label="Nombre completo">
+            <input value={form.nombre} onChange={e=>setForm({...form,nombre:e.target.value})} placeholder="Ej: Juan Pérez CPA" style={inpSt} onKeyDown={onKey}/>
+          </Fld>
+        )}
+        <Fld label="Correo electrónico">
+          <input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="contador@tuempresa.pa" style={inpSt} onKeyDown={onKey}/>
+        </Fld>
+        <Fld label="Contraseña">
+          <input type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder={mode==="register"?"Mínimo 8 caracteres, 1 mayúscula, 1 número":""} style={inpSt} onKeyDown={onKey}/>
+        </Fld>
+
+        <Btn onClick={handleSubmit} loading={busy} style={{width:"100%",justifyContent:"center",marginTop:8,padding:"12px"}}>
+          <Icon name="lock" size={16} color="#fff"/>
+          {mode==="login"?"Entrar":"Registrarme"}
+        </Btn>
+
+        <div style={{textAlign:"center",marginTop:20,fontSize:13,color:C.textMuted}}>
+          {mode==="login"?(
+            <>¿No tienes cuenta?{" "}
+              <span onClick={()=>setMode("register")} style={{color:C.accent,cursor:"pointer",fontWeight:600}}>Regístrate</span>
+            </>
+          ):(
+            <>¿Ya tienes cuenta?{" "}
+              <span onClick={()=>setMode("login")} style={{color:C.accent,cursor:"pointer",fontWeight:600}}>Inicia sesión</span>
+            </>
+          )}
+        </div>
+
+        <div style={{marginTop:24,padding:"12px 16px",background:C.infoBg,borderRadius:8,fontSize:12,color:C.infoText}}>
+          <strong>Demo:</strong> admin@contapanama.pa / [REDACTED_QA_PASSWORD]
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  SIDEBAR
+// ═══════════════════════════════════════════════════════════════════════════
+const NAV = [
+  {id:"dashboard",    label:"Dashboard",      icon:"dashboard"},
+  {id:"clientes",     label:"Clientes",       icon:"users"},
+  {id:"transacciones",label:"Diario Contable",icon:"journal"},
+  {id:"fiscal",       label:"Módulo Fiscal",  icon:"tax"},
+  {id:"conciliacion", label:"Conciliación",   icon:"bank"},
+  {id:"reportes",     label:"Reportes PDF",   icon:"report"},
+  {id:"alertas",      label:"Alertas",        icon:"bell"},
+];
+
+const Sidebar = ({active,setActive}) => {
+  const {user,logout} = useAuth();
+  return (
+    <div style={{width:230,background:C.nav,display:"flex",flexDirection:"column",height:"100vh",position:"fixed",left:0,top:0,zIndex:100}}>
+      <div style={{padding:"24px 20px 20px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{width:34,height:34,background:C.accent,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <Icon name="dollar" size={18} color="#fff"/>
+          </div>
+          <div>
+            <div style={{color:"#fff",fontWeight:700,fontSize:15,lineHeight:1.2}}>ContaPanamá</div>
+            <div style={{color:"#64748b",fontSize:11,marginTop:1}}>SaaS Contable</div>
+          </div>
+        </div>
+      </div>
+      <div style={{padding:"0 12px",flex:1,overflowY:"auto"}}>
+        {NAV.map(item=>{
+          const on=active===item.id;
+          return (
+            <button key={item.id} onClick={()=>setActive(item.id)}
+              style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 12px",borderRadius:8,border:"none",cursor:"pointer",marginBottom:2,background:on?"#0e3a5c":"transparent",color:on?"#e0f2fe":"#94a3b8",fontWeight:on?600:400,fontSize:14,textAlign:"left",fontFamily:"inherit"}}>
+              <Icon name={item.icon} size={17} color={on?C.accent:"#64748b"}/>
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
+      <div style={{padding:"12px 12px 20px",borderTop:"1px solid #1e293b"}}>
+        <div style={{padding:"10px 12px",display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+          <div style={{width:32,height:32,borderRadius:"50%",background:"#1d4ed8",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:"#bfdbfe",flexShrink:0}}>
+            {user?.nombre?.slice(0,2).toUpperCase()}
+          </div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{color:"#cbd5e1",fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user?.nombre}</div>
+            <div style={{color:"#475569",fontSize:11,textTransform:"capitalize"}}>{user?.rol}</div>
+          </div>
+        </div>
+        <button onClick={logout} style={{display:"flex",alignItems:"center",gap:8,width:"100%",padding:"8px 12px",borderRadius:7,border:"none",cursor:"pointer",background:"transparent",color:"#64748b",fontSize:13,fontFamily:"inherit"}}>
+          <Icon name="logout" size={15} color="#64748b"/> Cerrar sesión
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  DASHBOARD VIEW
+// ═══════════════════════════════════════════════════════════════════════════
+const DashboardView = () => {
+  const [data,setData]   = useState(null);
+  const [txns,setTxns]   = useState([]);
+  const [err, setErr]    = useState(null);
+  const [busy,setBusy]   = useState(true);
+  const periodo = new Date().toISOString().slice(0,7);
+
+  const load = useCallback(async()=>{
+    setBusy(true); setErr(null);
+    try {
+      const [d,t]=await Promise.all([
+        api.get(`/api/dashboard?periodo=${periodo}`),
+        api.get(`/api/transacciones?periodo=${periodo}`),
+      ]);
+      setData(d); setTxns(t.data||[]);
+    } catch(e){setErr(e.message);}
+    finally{setBusy(false);}
+  },[periodo]);
+
+  useEffect(()=>{load();},[load]);
+
+  if(busy) return <Spinner/>;
+  if(err)  return <ErrBox msg={err} onRetry={load}/>;
+
+  const fin=data.financiero;
+  return (
+    <div>
+      <div style={{marginBottom:28}}>
+        <div style={{fontSize:22,fontWeight:700,color:C.text}}>Dashboard</div>
+        <div style={{fontSize:14,color:C.textMuted,marginTop:3}}>Datos en tiempo real — {periodo}</div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16,marginBottom:24}}>
+        <KpiCard label="Ingresos del Mes"  value={fmt(fin.ingresos)}     sub="Período actual"  icon="trending" color={C.success}/>
+        <KpiCard label="Gastos del Mes"    value={fmt(fin.gastos)}       sub="Período actual"  icon="dollar"   color={C.warning}/>
+        <KpiCard label="ITBMS Neto DGI"    value={fmt(fin.itbms_neto)}   sub={`Débito: ${fmt(fin.itbms_debito)}`} icon="tax" color={C.info}/>
+        <KpiCard label="Clientes Activos"  value={data.clientes.activos} sub={`${data.clientes.omisos} omisos`} icon="users" color="#8b5cf6"/>
+      </div>
+
+      {/* Evolución mensual */}
+      {data.evolucion?.length>0 && (
+        <Card style={{marginBottom:24}}>
+          <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:16}}>Evolución Mensual {new Date().getFullYear()}</div>
+          <div style={{display:"flex",gap:8,alignItems:"flex-end",height:100}}>
+            {data.evolucion.map(m=>{
+              const maxVal=Math.max(...data.evolucion.map(x=>Math.max(parseFloat(x.ingresos),parseFloat(x.gastos))),1);
+              const hi = Math.round((parseFloat(m.ingresos)/maxVal)*90);
+              const hg = Math.round((parseFloat(m.gastos)/maxVal)*90);
+              return (
+                <div key={m.periodo} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                  <div style={{display:"flex",gap:2,alignItems:"flex-end",height:90}}>
+                    <div title={`Ingresos: ${fmt(m.ingresos)}`} style={{width:14,height:hi||2,background:C.success,borderRadius:"3px 3px 0 0"}}/>
+                    <div title={`Gastos: ${fmt(m.gastos)}`}   style={{width:14,height:hg||2,background:C.danger,borderRadius:"3px 3px 0 0"}}/>
+                  </div>
+                  <div style={{fontSize:9,color:C.textLight}}>{m.periodo.slice(5)}</div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{display:"flex",gap:16,marginTop:8}}>
+            <span style={{fontSize:11,color:C.textMuted,display:"flex",gap:4,alignItems:"center"}}>
+              <span style={{width:10,height:10,background:C.success,borderRadius:2,display:"inline-block"}}/>Ingresos
+            </span>
+            <span style={{fontSize:11,color:C.textMuted,display:"flex",gap:4,alignItems:"center"}}>
+              <span style={{width:10,height:10,background:C.danger,borderRadius:2,display:"inline-block"}}/>Gastos
+            </span>
+          </div>
+        </Card>
+      )}
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
+        <Card>
+          <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:14}}>Últimos Movimientos</div>
+          {txns.slice(0,6).map(t=>(
+            <div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${C.border}`}}>
+              <div>
+                <div style={{fontSize:13,fontWeight:600,color:C.text}}>{t.descripcion}</div>
+                <div style={{fontSize:11,color:C.textLight,marginTop:2}}>{fmtDate(t.fecha)} · {t.cliente_nombre||"—"}</div>
+              </div>
+              <div style={{textAlign:"right",flexShrink:0,marginLeft:12}}>
+                <div style={{fontSize:13,fontWeight:700,color:t.tipo==="ingreso"?C.success:C.danger}}>
+                  {t.tipo==="ingreso"?"+":"-"}{fmt(t.monto)}
+                </div>
+                <div style={{fontSize:10,color:C.textLight}}>ITBMS: {fmt(t.itbms)}</div>
+              </div>
+            </div>
+          ))}
+          {txns.length===0&&<div style={{fontSize:13,color:C.textLight,textAlign:"center",padding:"20px 0"}}>Sin transacciones este período</div>}
+        </Card>
+
+        <Card>
+          <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:14}}>Alertas de Vencimiento</div>
+          {data.vencimientos.map(v=>(
+            <div key={v.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${C.border}`}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:600,color:C.text}}>{v.descripcion}</div>
+                <div style={{fontSize:11,color:C.textLight,marginTop:2}}>{v.cliente_nombre||"Todos"} · {v.entidad}</div>
+              </div>
+              <div style={{textAlign:"right",marginLeft:12}}>
+                <div style={{fontSize:12,fontWeight:600,color:C.text,marginBottom:4}}>{fmtDate(v.fecha)}</div>
+                <span style={urgBadge(v.urgencia)}>{v.urgencia}</span>
+              </div>
+            </div>
+          ))}
+          {data.vencimientos.length===0&&<div style={{fontSize:13,color:C.textLight,textAlign:"center",padding:"20px 0"}}>Sin vencimientos pendientes 🎉</div>}
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CLIENTES VIEW
+// ═══════════════════════════════════════════════════════════════════════════
+const ClientesView = () => {
+  const [rows,setRows] = useState([]);
+  const [search,setSearch] = useState("");
+  const [busy,setBusy]  = useState(true);
+  const [err,setErr]    = useState(null);
+  const [saving,setSaving]=useState(false);
+  const [modal,setModal]=useState(false);
+  const [editId,setEditId]=useState(null);
+  const [formErrors,setFormErrors]=useState({});
+  const EMPTY={nombre:"",ruc:"",nit:"",tipo:"jurídica",actividad:"",estado:"activo",telefono:"",email:""};
+  const [form,setForm]=useState(EMPTY);
+
+  const load = useCallback(async()=>{
+    setBusy(true); setErr(null);
+    try {
+      const q=search?`?search=${encodeURIComponent(search)}`:"";
+      const res=await api.get(`/api/clientes${q}`);
+      setRows(res.data||[]);
+    } catch(e){setErr(e.message);}
+    finally{setBusy(false);}
+  },[search]);
+
+  useEffect(()=>{const t=setTimeout(load,350);return()=>clearTimeout(t);},[load]);
+
+  const openNew  = ()=>{setForm(EMPTY);setEditId(null);setFormErrors({});setModal(true);};
+  const openEdit = c=>{setForm({nombre:c.nombre,ruc:c.ruc,nit:c.nit||"",tipo:c.tipo,actividad:c.actividad||"",estado:c.estado,telefono:c.telefono||"",email:c.email||""});setEditId(c.id);setFormErrors({});setModal(true);};
+
+  const validateCliente = () => {
+    const e={};
+    if(!form.nombre.trim()) e.nombre="Nombre requerido";
+    if(!form.ruc.trim()) e.ruc="RUC requerido";
+    if(form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email="Email inválido";
+    setFormErrors(e);
+    return Object.keys(e).length===0;
+  };
+
+  const save = async()=>{
+    if(!validateCliente()) return;
+    setSaving(true);
+    try{
+      if(editId) await api.put(`/api/clientes/${editId}`,form);
+      else       await api.post("/api/clientes",form);
+      setModal(false); setFormErrors({}); load();
+    }catch(e){alert(e.message);}
+    finally{setSaving(false);}
+  };
+
+  const del = async id=>{
+    if(!confirm("¿Eliminar este cliente y todas sus transacciones?"))return;
+    try{await api.delete(`/api/clientes/${id}`);load();}
+    catch(e){alert(e.message);}
+  };
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:28}}>
+        <div>
+          <div style={{fontSize:22,fontWeight:700,color:C.text}}>Gestión de Clientes</div>
+          <div style={{fontSize:14,color:C.textMuted,marginTop:3}}>{rows.length} clientes en base de datos</div>
+        </div>
+        <Btn onClick={openNew}><Icon name="plus" size={16} color="#fff"/>Nuevo Cliente</Btn>
+      </div>
+
+      <Card style={{marginBottom:16}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <Icon name="search" size={16} color={C.textMuted}/>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por nombre o RUC..." style={{border:"none",outline:"none",fontSize:14,flex:1,fontFamily:"inherit",color:C.text,background:"transparent"}}/>
+        </div>
+      </Card>
+
+      {err&&<ErrBox msg={err} onRetry={load}/>}
+      {busy?<Spinner/>:(
+        <Card style={{padding:0,overflow:"hidden"}}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr style={{background:C.surfaceAlt}}>
+              <TH>Cliente / Razón Social</TH><TH>RUC</TH><TH>Tipo</TH>
+              <TH>Actividad</TH><TH right>Ingresos</TH><TH right>Txns</TH><TH>Estado</TH><TH>Acciones</TH>
+            </tr></thead>
+            <tbody>
+              {rows.map((c,i)=>(
+                <tr key={c.id} style={{background:i%2?C.surfaceAlt:C.surface}}>
+                  <TD><div style={{fontWeight:600}}>{c.nombre}</div><div style={{fontSize:11,color:C.textLight}}>NIT: {c.nit}</div></TD>
+                  <TD style={{fontFamily:"JetBrains Mono,monospace",color:C.textMuted}}>{c.ruc}</TD>
+                  <TD><span style={{fontSize:12,background:c.tipo==="jurídica"?C.infoBg:"#fdf4ff",color:c.tipo==="jurídica"?C.infoText:"#7c3aed",padding:"2px 10px",borderRadius:20,fontWeight:600}}>{c.tipo}</span></TD>
+                  <TD style={{color:C.textMuted}}>{c.actividad||"—"}</TD>
+                  <TD style={{fontWeight:600,color:C.success,textAlign:"right"}}>{fmt(c.total_ingresos)}</TD>
+                  <TD style={{textAlign:"right",color:C.textMuted,fontSize:12}}>{c.total_transacciones||0}</TD>
+                  <TD><span style={estadoBadge(c.estado)}>{c.estado}</span></TD>
+                  <TD>
+                    <div style={{display:"flex",gap:6}}>
+                      <button onClick={()=>openEdit(c)} style={{background:C.infoBg,border:"none",padding:"6px 8px",borderRadius:6,cursor:"pointer"}}><Icon name="edit" size={14} color={C.infoText}/></button>
+                      <button onClick={()=>del(c.id)}   style={{background:C.dangerBg,border:"none",padding:"6px 8px",borderRadius:6,cursor:"pointer"}}><Icon name="trash" size={14} color={C.dangerText}/></button>
+                    </div>
+                  </TD>
+                </tr>
+              ))}
+              {rows.length===0&&<tr><td colSpan={8} style={{textAlign:"center",padding:"40px",color:C.textMuted}}>No hay clientes registrados</td></tr>}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {modal&&(
+        <Modal title={editId?"Editar Cliente":"Nuevo Cliente"} onClose={()=>{setModal(false);setFormErrors({});}}>
+          <Fld label={<>Nombre / Razón Social{formErrors.nombre&&<span style={{color:C.danger,marginLeft:6,fontSize:11}}>{formErrors.nombre}</span>}</>}>
+            <input value={form.nombre} onChange={e=>setForm({...form,nombre:e.target.value})} style={{...inpSt,borderColor:formErrors.nombre?C.danger:C.border}}/>
+          </Fld>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+            <Fld label={<>RUC{formErrors.ruc&&<span style={{color:C.danger,marginLeft:6,fontSize:11}}>{formErrors.ruc}</span>}</>}>
+              <input value={form.ruc} onChange={e=>setForm({...form,ruc:e.target.value})} placeholder="155-789-1" style={{...inpSt,borderColor:formErrors.ruc?C.danger:C.border}}/>
+            </Fld>
+            <Fld label="NIT"><input value={form.nit} onChange={e=>setForm({...form,nit:e.target.value})} placeholder="NT-00234" style={inpSt}/></Fld>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+            <Fld label="Tipo">
+              <select value={form.tipo} onChange={e=>setForm({...form,tipo:e.target.value})} style={inpSt}>
+                <option value="jurídica">Persona Jurídica</option>
+                <option value="natural">Persona Natural</option>
+              </select>
+            </Fld>
+            <Fld label="Estado">
+              <select value={form.estado} onChange={e=>setForm({...form,estado:e.target.value})} style={inpSt}>
+                <option value="activo">Activo</option><option value="inactivo">Inactivo</option><option value="omiso">Omiso</option>
+              </select>
+            </Fld>
+          </div>
+          <Fld label="Actividad Económica"><input value={form.actividad} onChange={e=>setForm({...form,actividad:e.target.value})} style={inpSt}/></Fld>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+            <Fld label="Teléfono"><input value={form.telefono} onChange={e=>setForm({...form,telefono:e.target.value})} style={inpSt}/></Fld>
+            <Fld label={<>Email{formErrors.email&&<span style={{color:C.danger,marginLeft:6,fontSize:11}}>{formErrors.email}</span>}</>}>
+              <input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} style={{...inpSt,borderColor:formErrors.email?C.danger:C.border}}/>
+            </Fld>
+          </div>
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+            <Btn variant="secondary" onClick={()=>{setModal(false);setFormErrors({});}}>Cancelar</Btn>
+            <Btn onClick={save} loading={saving}>{editId?"Actualizar":"Guardar"}</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  TRANSACCIONES VIEW
+// ═══════════════════════════════════════════════════════════════════════════
+const TransaccionesView = () => {
+  const [rows,setRows]     = useState([]);
+  const [clientes,setCli]  = useState([]);
+  const [resumen,setRes]   = useState(null);
+  const [filtro,setFiltro] = useState("todos");
+  const [desde,setDesde]   = useState("");
+  const [hasta,setHasta]   = useState("");
+  const [busy,setBusy]     = useState(true);
+  const [err,setErr]       = useState(null);
+  const [modal,setModal]   = useState(false);
+  const [saving,setSaving] = useState(false);
+  const [editId,setEditId] = useState(null);
+  const [formErrors,setFormErrors] = useState({});
+  const periodo = new Date().toISOString().slice(0,7);
+  const EMPTY={fecha:"",cliente_id:"",descripcion:"",tipo:"ingreso",monto:"",itbms:"",deducible:false,banco:"",referencia:""};
+  const [form,setForm]=useState(EMPTY);
+
+  const load = useCallback(async()=>{
+    setBusy(true); setErr(null);
+    try {
+      let q=`?periodo=${periodo}`;
+      if(filtro!=="todos") q+=`&tipo=${filtro}`;
+      if(desde) q+=`&desde=${desde}`;
+      if(hasta) q+=`&hasta=${hasta}`;
+      const [tx,sm,cl]=await Promise.all([
+        api.get(`/api/transacciones${q}`),
+        api.get(`/api/transacciones/resumen?periodo=${periodo}`),
+        api.get("/api/clientes"),
+      ]);
+      setRows(tx.data||[]); setRes(sm); setCli(cl.data||[]);
+    }catch(e){setErr(e.message);}
+    finally{setBusy(false);}
+  },[periodo,filtro,desde,hasta]);
+
+  useEffect(()=>{load();},[load]);
+
+  const openEdit = t => {
+    setForm({fecha:fmtDate(t.fecha),cliente_id:t.cliente_id||"",descripcion:t.descripcion,tipo:t.tipo,monto:String(t.monto),itbms:String(t.itbms),deducible:t.deducible,banco:t.banco||"",referencia:t.referencia||""});
+    setEditId(t.id); setFormErrors({}); setModal(true);
+  };
+
+  const validateForm = () => {
+    const e={};
+    if(!form.fecha) e.fecha="Fecha requerida";
+    if(!form.descripcion.trim()) e.descripcion="Descripción requerida";
+    if(!form.monto || isNaN(parseFloat(form.monto)) || parseFloat(form.monto)<=0) e.monto="Monto debe ser mayor a 0";
+    setFormErrors(e);
+    return Object.keys(e).length===0;
+  };
+
+  const save = async()=>{
+    if(!validateForm()) return;
+    setSaving(true);
+    try{
+      if(editId) await api.put(`/api/transacciones/${editId}`,form);
+      else       await api.post("/api/transacciones",form);
+      setModal(false); setForm(EMPTY); setEditId(null); setFormErrors({}); load();
+    }catch(e){alert(e.message);}
+    finally{setSaving(false);}
+  };
+
+  const calcItbms = v=>{
+    const m=parseFloat(v);
+    if(!isNaN(m)) setForm(f=>({...f,itbms:(m*0.07).toFixed(2)}));
+  };
+
+  const del = async id=>{
+    if(!confirm("¿Eliminar esta transacción?"))return;
+    await api.delete(`/api/transacciones/${id}`); load();
+  };
+
+  const BANCOS=["Banco Nacional","Banistmo","BAC","Banesco","Global Bank","Caja de Ahorros"];
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:28}}>
+        <div>
+          <div style={{fontSize:22,fontWeight:700,color:C.text}}>Diario Contable</div>
+          <div style={{fontSize:14,color:C.textMuted,marginTop:3}}>{rows.length} registros · {periodo}</div>
+        </div>
+        <Btn onClick={()=>{setEditId(null);setForm(EMPTY);setFormErrors({});setModal(true);}}><Icon name="plus" size={16} color="#fff"/>Nuevo Registro</Btn>
+      </div>
+
+      {resumen&&(
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16,marginBottom:20}}>
+          <KpiCard label="Ingresos"  value={fmt(resumen.total_ingresos)} icon="trending" color={C.success}/>
+          <KpiCard label="Gastos"    value={fmt(resumen.total_gastos)}   icon="dollar"   color={C.warning}/>
+          <KpiCard label="Resultado" value={fmt(resumen.utilidad_neta)}  icon="check"    color={parseFloat(resumen.utilidad_neta)>=0?C.success:C.danger}/>
+          <KpiCard label="ITBMS Neto" value={fmt(resumen.itbms_neto)}   icon="tax"      color={C.info}/>
+        </div>
+      )}
+
+      {/* Filtros */}
+      <div style={{display:"flex",gap:10,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
+        {["todos","ingreso","gasto"].map(t=>(
+          <button key={t} onClick={()=>setFiltro(t)} style={{padding:"7px 18px",borderRadius:20,border:`1px solid ${filtro===t?C.accent:C.border}`,background:filtro===t?C.infoBg:"none",color:filtro===t?C.accent:C.textMuted,fontWeight:600,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
+            {t==="todos"?"Todos":t==="ingreso"?"Ingresos":"Gastos"}
+          </button>
+        ))}
+        <div style={{display:"flex",gap:8,marginLeft:"auto",alignItems:"center"}}>
+          <span style={{fontSize:12,color:C.textMuted}}>Desde</span>
+          <input type="date" value={desde} onChange={e=>setDesde(e.target.value)} style={{...inpSt,width:140,padding:"6px 10px"}}/>
+          <span style={{fontSize:12,color:C.textMuted}}>Hasta</span>
+          <input type="date" value={hasta} onChange={e=>setHasta(e.target.value)} style={{...inpSt,width:140,padding:"6px 10px"}}/>
+          {(desde||hasta)&&<button onClick={()=>{setDesde("");setHasta("");}} style={{background:"none",border:"none",cursor:"pointer",color:C.danger,fontSize:12,fontFamily:"inherit"}}>✕ Limpiar</button>}
+        </div>
+      </div>
+
+      {err&&<ErrBox msg={err} onRetry={load}/>}
+      {busy?<Spinner/>:(
+        <Card style={{padding:0,overflow:"hidden"}}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr style={{background:C.surfaceAlt}}>
+              <TH>Fecha</TH><TH>Descripción</TH><TH>Cliente</TH>
+              <TH>Tipo</TH><TH right>Monto</TH><TH right>ITBMS</TH>
+              <TH>Banco / Ref</TH><TH>Ded.</TH><TH></TH>
+            </tr></thead>
+            <tbody>
+              {rows.map((t,i)=>(
+                <tr key={t.id} style={{background:i%2?C.surfaceAlt:C.surface}}>
+                  <TD style={{fontFamily:"JetBrains Mono,monospace",color:C.textMuted,fontSize:12}}>{fmtDate(t.fecha)}</TD>
+                  <TD style={{fontWeight:600,maxWidth:200}}>{t.descripcion}</TD>
+                  <TD style={{color:C.textMuted,fontSize:12}}>{t.cliente_nombre||"—"}</TD>
+                  <TD><span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20,background:t.tipo==="ingreso"?C.successBg:C.dangerBg,color:t.tipo==="ingreso"?C.successText:C.dangerText,textTransform:"uppercase"}}>{t.tipo}</span></TD>
+                  <TD style={{fontWeight:700,color:t.tipo==="ingreso"?C.success:C.danger,textAlign:"right"}}>{t.tipo==="ingreso"?"+":"-"}{fmt(t.monto)}</TD>
+                  <TD style={{color:C.textMuted,textAlign:"right"}}>{fmt(t.itbms)}</TD>
+                  <TD><div style={{fontSize:12,fontWeight:600}}>{t.banco}</div><div style={{fontSize:11,color:C.textLight,fontFamily:"JetBrains Mono,monospace"}}>{t.referencia}</div></TD>
+                  <TD style={{textAlign:"center"}}>{t.deducible?<span style={{color:C.success,fontWeight:700}}>✓</span>:<span style={{color:C.textLight}}>—</span>}</TD>
+                  <TD>
+                    <div style={{display:"flex",gap:6}}>
+                      <button onClick={()=>openEdit(t)} style={{background:C.infoBg,border:"none",padding:"5px 7px",borderRadius:6,cursor:"pointer"}}><Icon name="edit" size={13} color={C.infoText}/></button>
+                      <button onClick={()=>del(t.id)} style={{background:C.dangerBg,border:"none",padding:"5px 7px",borderRadius:6,cursor:"pointer"}}><Icon name="trash" size={13} color={C.dangerText}/></button>
+                    </div>
+                  </TD>
+                </tr>
+              ))}
+              {rows.length===0&&<tr><td colSpan={9} style={{textAlign:"center",padding:"40px",color:C.textMuted}}>Sin transacciones</td></tr>}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {modal&&(
+        <Modal title={editId?"Editar Transacción":"Nuevo Registro Contable"} onClose={()=>{setModal(false);setEditId(null);setFormErrors({});}} width={560}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+            <Fld label={<>Fecha{formErrors.fecha&&<span style={{color:C.danger,marginLeft:6,fontSize:11}}>{formErrors.fecha}</span>}</>}>
+              <input type="date" value={form.fecha} onChange={e=>setForm({...form,fecha:e.target.value})} style={{...inpSt,borderColor:formErrors.fecha?C.danger:C.border}}/>
+            </Fld>
+            <Fld label="Tipo">
+              <select value={form.tipo} onChange={e=>setForm({...form,tipo:e.target.value})} style={inpSt}>
+                <option value="ingreso">Ingreso</option><option value="gasto">Gasto</option>
+              </select>
+            </Fld>
+          </div>
+          <Fld label={<>Descripción / Concepto{formErrors.descripcion&&<span style={{color:C.danger,marginLeft:6,fontSize:11}}>{formErrors.descripcion}</span>}</>}>
+            <input value={form.descripcion} onChange={e=>setForm({...form,descripcion:e.target.value})} style={{...inpSt,borderColor:formErrors.descripcion?C.danger:C.border}}/>
+          </Fld>
+          <Fld label="Cliente">
+            <select value={form.cliente_id} onChange={e=>setForm({...form,cliente_id:e.target.value})} style={inpSt}>
+              <option value="">Sin cliente específico</option>
+              {clientes.map(c=><option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+          </Fld>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+            <Fld label={<>Monto (USD){formErrors.monto&&<span style={{color:C.danger,marginLeft:6,fontSize:11}}>{formErrors.monto}</span>}</>}>
+              <input type="number" value={form.monto} onChange={e=>{setForm({...form,monto:e.target.value});calcItbms(e.target.value);}} style={{...inpSt,borderColor:formErrors.monto?C.danger:C.border}}/>
+            </Fld>
+            <Fld label="ITBMS (7% auto)">
+              <input type="number" value={form.itbms} onChange={e=>setForm({...form,itbms:e.target.value})} style={inpSt}/>
+            </Fld>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+            <Fld label="Banco">
+              <select value={form.banco} onChange={e=>setForm({...form,banco:e.target.value})} style={inpSt}>
+                <option value="">Seleccionar banco...</option>
+                {BANCOS.map(b=><option key={b}>{b}</option>)}
+              </select>
+            </Fld>
+            <Fld label="Referencia / Cheque"><input value={form.referencia} onChange={e=>setForm({...form,referencia:e.target.value})} placeholder="CHQ-001234" style={inpSt}/></Fld>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:20}}>
+            <input type="checkbox" id="ded" checked={form.deducible} onChange={e=>setForm({...form,deducible:e.target.checked})} style={{width:16,height:16,accentColor:C.accent}}/>
+            <label htmlFor="ded" style={{fontSize:14,color:C.textMuted,cursor:"pointer"}}>Gasto deducible (aplica ITBMS crédito fiscal)</label>
+          </div>
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+            <Btn variant="secondary" onClick={()=>{setModal(false);setEditId(null);setFormErrors({});}}>Cancelar</Btn>
+            <Btn onClick={save} loading={saving}>{editId?"Actualizar":"Registrar"}</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  FISCAL VIEW
+// ═══════════════════════════════════════════════════════════════════════════
+const FiscalView = () => {
+  const [itbms,setItbms]=useState(null);
+  const [renta,setRenta]=useState(null);
+  const [cal,setCal]    =useState([]);
+  const [busy,setBusy]  =useState(true);
+  const [err,setErr]    =useState(null);
+  const periodo=new Date().toISOString().slice(0,7);
+  const anio=new Date().getFullYear();
+
+  const load=useCallback(async()=>{
+    setBusy(true);setErr(null);
+    try{
+      const[i,r,c]=await Promise.all([
+        api.get(`/api/fiscal/itbms?periodo=${periodo}`),
+        api.get(`/api/fiscal/renta?anio=${anio}`),
+        api.get(`/api/fiscal/calendario?anio=${anio}`),
+      ]);
+      setItbms(i);setRenta(r);
+      setCal((c.obligaciones||[]).filter(o=>o.estado!=="pendiente"||o.periodo?.includes(String(anio))));
+    }catch(e){setErr(e.message);}
+    finally{setBusy(false);}
+  },[periodo,anio]);
+
+  useEffect(()=>{load();},[load]);
+
+  if(busy) return <Spinner/>;
+  if(err)  return <ErrBox msg={err} onRetry={load}/>;
+
+  const estColor={vencido:[C.dangerBg,C.dangerText],proximo:[C.warningBg,C.warningText],presentado:[C.successBg,C.successText],pendiente:[C.infoBg,C.infoText]};
+  const totalISR = renta?.total_impuesto||0;
+
+  return (
+    <div>
+      <div style={{marginBottom:28}}>
+        <div style={{fontSize:22,fontWeight:700,color:C.text}}>Módulo Fiscal — Panamá</div>
+        <div style={{fontSize:14,color:C.textMuted,marginTop:3}}>Cálculos automáticos desde PostgreSQL · DGI · ITBMS · ISR</div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24,marginBottom:24}}>
+        {itbms&&<Card>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+            <div style={{width:38,height:38,background:C.infoBg,borderRadius:9,display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="tax" size={18} color={C.accent}/></div>
+            <div><div style={{fontWeight:700,fontSize:15,color:C.text}}>ITBMS — Formulario 430</div>
+            <div style={{fontSize:12,color:C.textMuted}}>Período: {itbms.periodo} · Tasa: 7%</div></div>
+          </div>
+          {[["Base Imponible (Ventas)",fmt(itbms.base_imponible),C.text],
+            ["ITBMS Débito (Ventas × 7%)",fmt(itbms.debito),C.dangerText],
+            ["ITBMS Crédito (Compras deducibles)",fmt(itbms.credito),C.successText],
+            [null,null,null],
+            ["ITBMS NETO A PAGAR",fmt(itbms.saldo_pagar),C.accent],
+          ].map(([l,v,c],i)=>v?(
+            <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"10px 0",borderBottom:i===3?`2px solid ${C.border}`:`1px solid ${C.border}`}}>
+              <span style={{fontSize:13,color:C.textMuted}}>{l}</span>
+              <span style={{fontSize:i===4?16:13,fontWeight:i===4?800:600,color:c}}>{v}</span>
+            </div>
+          ):<div key={i} style={{height:8}}/>)}
+          <div style={{marginTop:14,background:C.warningBg,border:`1px solid ${C.warning}33`,borderRadius:8,padding:"10px 14px",fontSize:12,color:C.warningText}}>
+            Vencimiento: <strong>{itbms.vencimiento}</strong> · {itbms.validacion?.mensaje}
+          </div>
+        </Card>}
+        {renta&&<Card>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+            <div style={{width:38,height:38,background:"#fdf4ff",borderRadius:9,display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name="dollar" size={18} color="#7c3aed"/></div>
+            <div><div style={{fontWeight:700,fontSize:15,color:C.text}}>ISR — Formulario 101</div>
+            <div style={{fontSize:12,color:C.textMuted}}>Año fiscal: {renta.anio} · Tasas panameñas</div></div>
+          </div>
+          {renta.detalle?.map((d,i)=>(
+            <div key={i} style={{marginBottom:16,padding:14,background:C.surfaceAlt,borderRadius:8}}>
+              <div style={{fontSize:11,fontWeight:700,color:C.textMuted,textTransform:"uppercase",marginBottom:10}}>
+                Persona {d.tipo_persona||"General"}
+              </div>
+              {[["Ingresos Brutos",fmt(d.ingresos_brutos),C.text],
+                ["(-) Gastos Deducibles",fmt(d.gastos_deducibles),C.textMuted],
+                ["Renta Neta Gravable",fmt(d.renta_neta),C.text],
+                [`ISR (${(d.tasa*100).toFixed(0)}% — ${d.metodo})`,fmt(d.impuesto),"#7c3aed"],
+              ].map(([l,v,c],j)=>(
+                <div key={j} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${C.border}`}}>
+                  <span style={{fontSize:12,color:C.textMuted}}>{l}</span>
+                  <span style={{fontSize:j===3?14:12,fontWeight:j===3?800:600,color:c}}>{v}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+          <div style={{padding:"12px 16px",background:"#fdf4ff",borderRadius:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontSize:12,color:"#7c3aed",fontWeight:600}}>TOTAL ISR A PAGAR</div>
+            <div style={{fontSize:20,fontWeight:800,color:"#7c3aed"}}>{fmt(totalISR)}</div>
+          </div>
+          <div style={{marginTop:10,fontSize:12,color:C.infoText}}>Vencimiento: <strong>{renta.vencimiento}</strong></div>
+        </Card>}
+      </div>
+
+      <Card style={{padding:0,overflow:"hidden"}}>
+        <div style={{padding:"16px 20px",borderBottom:`1px solid ${C.border}`,fontSize:15,fontWeight:700,color:C.text}}>Calendario de Obligaciones {anio}</div>
+        <table style={{width:"100%",borderCollapse:"collapse"}}>
+          <thead><tr style={{background:C.surfaceAlt}}>
+            <TH>Obligación</TH><TH>Entidad</TH><TH>Formulario</TH><TH>Periodicidad</TH><TH>Vencimiento</TH><TH>Estado</TH>
+          </tr></thead>
+          <tbody>
+            {cal.map((o,i)=>{
+              const[bg,tc]=estColor[o.estado]||estColor.pendiente;
+              return(
+                <tr key={i} style={{background:i%2?C.surfaceAlt:C.surface}}>
+                  <TD style={{fontWeight:600}}>{o.descripcion}</TD>
+                  <TD style={{color:C.textMuted}}>{o.entidad}</TD>
+                  <TD style={{fontFamily:"JetBrains Mono,monospace",color:C.textMuted,fontSize:12}}>{o.formulario}</TD>
+                  <TD style={{color:C.textMuted,textTransform:"capitalize"}}>{o.periodicidad}</TD>
+                  <TD style={{fontFamily:"JetBrains Mono,monospace",fontWeight:600,fontSize:12}}>{o.fecha_vencimiento}</TD>
+                  <TD><span style={{background:bg,color:tc,padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:700,textTransform:"uppercase"}}>{o.estado}</span></TD>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CONCILIACIÓN VIEW
+// ═══════════════════════════════════════════════════════════════════════════
+const ConciliacionView = () => {
+  const [data,setData]=useState(null);
+  const [busy,setBusy]=useState(true);
+  const [err,setErr]=useState(null);
+  const [periodo,setPeriodo]=useState(new Date().toISOString().slice(0,7));
+
+  const load=useCallback(async()=>{
+    setBusy(true);setErr(null);
+    try{const r=await api.get(`/api/fiscal/conciliacion?periodo=${periodo}`);setData(r);}
+    catch(e){setErr(e.message);}
+    finally{setBusy(false);}
+  },[periodo]);
+
+  useEffect(()=>{load();},[load]);
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:28}}>
+        <div>
+          <div style={{fontSize:22,fontWeight:700,color:C.text}}>Conciliación Bancaria</div>
+          <div style={{fontSize:14,color:C.textMuted,marginTop:3}}>Compara registros contables vs movimientos bancarios</div>
+        </div>
+        <input type="month" value={periodo} onChange={e=>setPeriodo(e.target.value)} style={{...inpSt,width:160}}/>
+      </div>
+
+      {err&&<ErrBox msg={err} onRetry={load}/>}
+      {busy?<Spinner/>:data&&(
+        <>
+          {data.alertas?.length>0&&(
+            <div style={{background:C.warningBg,border:`1px solid ${C.warning}33`,borderLeft:`4px solid ${C.warning}`,borderRadius:10,padding:"14px 18px",marginBottom:20}}>
+              <div style={{fontWeight:700,color:C.warningText,marginBottom:6}}>⚠ {data.alertas.length} diferencia(s) detectada(s)</div>
+              {data.alertas.map((a,i)=>(
+                <div key={i} style={{fontSize:13,color:C.warningText}}>• {a.banco}: diferencia de {fmt(a.diferencia)}</div>
+              ))}
+            </div>
+          )}
+          <Card style={{padding:0,overflow:"hidden"}}>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr style={{background:C.surfaceAlt}}>
+                <TH>Banco</TH><TH right>Saldo Contable</TH><TH right>Saldo Banco</TH>
+                <TH right>Diferencia</TH><TH>Transacciones</TH><TH>Estado</TH>
+              </tr></thead>
+              <tbody>
+                {data.resumen?.map((r,i)=>{
+                  const eColor={conciliado:[C.successBg,C.successText],diferencia:[C.dangerBg,C.dangerText],sin_datos:["#f8fafc",C.textMuted]}[r.estado];
+                  return(
+                    <tr key={i} style={{background:i%2?C.surfaceAlt:C.surface}}>
+                      <TD style={{fontWeight:600}}>{r.banco}</TD>
+                      <TD style={{textAlign:"right",fontWeight:600}}>{fmt(r.saldo_contable)}</TD>
+                      <TD style={{textAlign:"right",color:C.textMuted}}>{r.saldo_banco==="Sin registros bancarios"?<span style={{color:C.textLight,fontSize:12}}>Sin datos</span>:fmt(r.saldo_banco)}</TD>
+                      <TD style={{textAlign:"right",fontWeight:700,color:r.diferencia==="N/A"?C.textLight:parseFloat(r.diferencia)===0?C.success:C.danger}}>
+                        {r.diferencia==="N/A"?"—":fmt(r.diferencia)}
+                      </TD>
+                      <TD style={{color:C.textMuted,fontSize:12}}>{r.num_transacciones} registros</TD>
+                      <TD><span style={{background:eColor?.[0],color:eColor?.[1],padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:700,textTransform:"uppercase"}}>{r.estado.replace("_"," ")}</span></TD>
+                    </tr>
+                  );
+                })}
+                {(!data.resumen||data.resumen.length===0)&&(
+                  <tr><td colSpan={6} style={{textAlign:"center",padding:"40px",color:C.textMuted}}>No hay datos de conciliación para este período. Registra transacciones con banco asignado.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  REPORTES VIEW — PDFs reales
+// ═══════════════════════════════════════════════════════════════════════════
+const ReportesView = () => {
+  const [periodo,setPeriodo]=useState(new Date().toISOString().slice(0,7));
+  const [clientes,setCli]  =useState([]);
+  const [cliSel,setCliSel] =useState("");
+  const [resumen,setRes]   =useState(null);
+  const [txns,setTxns]     =useState([]);
+  const [busy,setBusy]     =useState(true);
+  const [genPDF,setGenPDF] =useState("");
+
+  useEffect(()=>{
+    Promise.all([
+      api.get(`/api/transacciones/resumen?periodo=${periodo}`),
+      api.get(`/api/transacciones?periodo=${periodo}`),
+      api.get("/api/clientes"),
+    ]).then(([r,t,c])=>{setRes(r);setTxns(t.data||[]);setCli(c.data||[]);}).finally(()=>setBusy(false));
+  },[periodo]);
+
+  const generar = async(tipo) => {
+    setGenPDF(tipo);
+    try{
+      let path="";
+      if(tipo==="diario")  path=`/api/reportes/diario?periodo=${periodo}`;
+      if(tipo==="estado")  path=`/api/reportes/estado-resultados?periodo=${periodo}`;
+      if(tipo==="itbms")   path=`/api/reportes/itbms?periodo=${periodo}`;
+      if(tipo==="cliente"&&cliSel) path=`/api/reportes/cliente/${cliSel}?periodo=${periodo}`;
+      if(!path){alert("Selecciona un cliente para el reporte individual");return;}
+      await api.pdf(path);
+    }catch(e){alert("Error generando PDF: "+e.message);}
+    finally{setGenPDF("");}
+  };
+
+  if(busy) return <Spinner/>;
+
+  const ing=txns.filter(t=>t.tipo==="ingreso").reduce((s,t)=>s+parseFloat(t.monto),0);
+  const gst=txns.filter(t=>t.tipo==="gasto").reduce((s,t)=>s+parseFloat(t.monto),0);
+  const util=ing-gst;
+  const margen=ing>0?((util/ing)*100).toFixed(1):0;
+
+  return (
+    <div>
+      <div style={{marginBottom:28}}>
+        <div style={{fontSize:22,fontWeight:700,color:C.text}}>Reportes PDF Profesionales</div>
+        <div style={{fontSize:14,color:C.textMuted,marginTop:3}}>Generación real de PDFs · Diario combinado · Estado de resultados · ITBMS</div>
+      </div>
+
+      {/* Selector de período */}
+      <Card style={{marginBottom:24}}>
+        <div style={{display:"flex",gap:20,alignItems:"center",flexWrap:"wrap"}}>
+          <div>
+            <div style={{fontSize:12,fontWeight:600,color:C.textMuted,marginBottom:6,textTransform:"uppercase"}}>Período</div>
+            <input type="month" value={periodo} onChange={e=>setPeriodo(e.target.value)} style={{...inpSt,width:160}}/>
+          </div>
+          <div>
+            <div style={{fontSize:12,fontWeight:600,color:C.textMuted,marginBottom:6,textTransform:"uppercase"}}>Cliente (para reporte individual)</div>
+            <select value={cliSel} onChange={e=>setCliSel(e.target.value)} style={{...inpSt,width:260}}>
+              <option value="">Seleccionar cliente...</option>
+              {clientes.map(c=><option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+          </div>
+        </div>
+      </Card>
+
+      {/* Estado de resultados inline */}
+      <Card style={{marginBottom:24}}>
+        <div style={{fontSize:15,fontWeight:700,color:C.text,marginBottom:20}}>Vista Previa — Estado de Resultados {periodo}</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 2px 1fr",gap:24}}>
+          <div>
+            <div style={{fontSize:11,fontWeight:700,color:C.success,textTransform:"uppercase",marginBottom:12}}>Ingresos</div>
+            {txns.filter(t=>t.tipo==="ingreso").map(t=>(
+              <div key={t.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${C.border}`,fontSize:13}}>
+                <span style={{color:C.textMuted}}>{t.descripcion}</span>
+                <span style={{fontWeight:600}}>{fmt(t.monto)}</span>
+              </div>
+            ))}
+            <div style={{display:"flex",justifyContent:"space-between",padding:"12px 0 0",fontSize:14,fontWeight:800}}>
+              <span>Total Ingresos</span><span style={{color:C.success}}>{fmt(ing)}</span>
+            </div>
+          </div>
+          <div style={{background:C.border}}/>
+          <div>
+            <div style={{fontSize:11,fontWeight:700,color:C.danger,textTransform:"uppercase",marginBottom:12}}>Gastos y Costos</div>
+            {txns.filter(t=>t.tipo==="gasto").map(t=>(
+              <div key={t.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${C.border}`,fontSize:13}}>
+                <span style={{color:C.textMuted}}>{t.descripcion}</span>
+                <span style={{fontWeight:600}}>{fmt(t.monto)}</span>
+              </div>
+            ))}
+            <div style={{display:"flex",justifyContent:"space-between",padding:"12px 0 0",fontSize:14,fontWeight:800}}>
+              <span>Total Gastos</span><span style={{color:C.danger}}>{fmt(gst)}</span>
+            </div>
+          </div>
+        </div>
+        <div style={{marginTop:20,padding:"16px 20px",background:util>=0?C.successBg:C.dangerBg,borderRadius:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontSize:12,fontWeight:700,color:util>=0?C.successText:C.dangerText,textTransform:"uppercase"}}>{util>=0?"Utilidad Neta":"Pérdida Neta"}</div>
+            <div style={{fontSize:12,color:util>=0?C.successText:C.dangerText,opacity:0.8}}>Margen: {margen}%</div>
+          </div>
+          <div style={{fontSize:26,fontWeight:800,color:util>=0?C.success:C.danger}}>{fmt(util)}</div>
+        </div>
+      </Card>
+
+      {/* Botones PDF */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:16}}>
+        {[
+          {id:"diario",  icon:"journal", title:"Diario Combinado",        desc:"Todos los asientos del período, agrupados por fecha. Listo para auditoría DGI.",           color:C.accent},
+          {id:"estado",  icon:"trending",title:"Estado de Resultados",   desc:"Ingresos, gastos y utilidad neta. Formato profesional con márgenes y análisis.",           color:C.success},
+          {id:"itbms",   icon:"tax",     title:"Declaración ITBMS (430)",desc:"Débito, crédito fiscal y saldo a pagar. Referencia al Formulario 430 de la DGI.",         color:"#7c3aed"},
+          {id:"cliente", icon:"users",   title:"Reporte por Cliente",    desc:"Historial completo de transacciones para el cliente seleccionado arriba.",                  color:"#ec4899"},
+        ].map(r=>(
+          <div key={r.id} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:24}}>
+            <div style={{width:44,height:44,borderRadius:10,background:r.color+"18",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:14}}>
+              <Icon name={r.icon} size={20} color={r.color}/>
+            </div>
+            <div style={{fontSize:15,fontWeight:700,color:C.text,marginBottom:6}}>{r.title}</div>
+            <div style={{fontSize:13,color:C.textMuted,lineHeight:1.6,marginBottom:18}}>{r.desc}</div>
+            <Btn onClick={()=>generar(r.id)} loading={genPDF===r.id} style={{background:r.color,color:"#fff",border:"none"}}>
+              <Icon name="pdf" size={15} color="#fff"/>
+              {genPDF===r.id?"Generando...":"Descargar PDF"}
+            </Btn>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ALERTAS VIEW
+// ═══════════════════════════════════════════════════════════════════════════
+const AlertasView = () => {
+  const [rows,setRows]=useState([]);
+  const [busy,setBusy]=useState(true);
+  const [err,setErr]=useState(null);
+  const [modal,setModal]=useState(false);
+  const [saving,setSaving]=useState(false);
+  const EMPTY={descripcion:"",entidad:"DGI",fecha:"",urgencia:"media",cliente_nombre:"Todos"};
+  const [form,setForm]=useState(EMPTY);
+
+  const load=useCallback(async()=>{
+    setBusy(true);setErr(null);
+    try{const r=await api.get("/api/vencimientos");setRows(r.data||[]);}
+    catch(e){setErr(e.message);}
+    finally{setBusy(false);}
+  },[]);
+
+  useEffect(()=>{load();},[load]);
+
+  const completar=async id=>{await api.patch(`/api/vencimientos/${id}/completar`,{});load();};
+  const eliminar =async id=>{await api.delete(`/api/vencimientos/${id}`);load();};
+  const save=async()=>{
+    setSaving(true);
+    try{await api.post("/api/vencimientos",form);setModal(false);setForm(EMPTY);load();}
+    catch(e){alert(e.message);}
+    finally{setSaving(false);}
+  };
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:28}}>
+        <div>
+          <div style={{fontSize:22,fontWeight:700,color:C.text}}>Centro de Alertas</div>
+          <div style={{fontSize:14,color:C.textMuted,marginTop:3}}>{rows.length} alertas pendientes</div>
+        </div>
+        <Btn onClick={()=>setModal(true)}><Icon name="plus" size={16} color="#fff"/>Nueva Alerta</Btn>
+      </div>
+
+      {err&&<ErrBox msg={err} onRetry={load}/>}
+      {busy?<Spinner/>:(
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          {rows.map(v=>{
+            const bc={critica:C.danger,alta:C.warning,media:C.accent,baja:C.border}[v.urgencia];
+            const bg={critica:C.dangerBg,alta:C.warningBg,media:C.infoBg,baja:C.surfaceAlt}[v.urgencia];
+            return(
+              <div key={v.id} style={{background:bg,border:`1px solid ${bc}44`,borderLeft:`4px solid ${bc}`,borderRadius:10,padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{display:"flex",gap:14,alignItems:"center"}}>
+                  <Icon name="bell" size={20} color={bc}/>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:15,color:C.text}}>{v.descripcion}</div>
+                    <div style={{fontSize:12,color:C.textMuted,marginTop:3}}>{v.cliente_nombre||"Todos"} · {v.entidad}</div>
+                  </div>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:12}}>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>{fmtDate(v.fecha)}</div>
+                    <span style={urgBadge(v.urgencia)}>{v.urgencia}</span>
+                  </div>
+                  <div style={{display:"flex",gap:6}}>
+                    <button onClick={()=>completar(v.id)} style={{background:C.successBg,border:"none",padding:"7px 9px",borderRadius:7,cursor:"pointer"}}><Icon name="check" size={14} color={C.success}/></button>
+                    <button onClick={()=>eliminar(v.id)}  style={{background:C.dangerBg,border:"none",padding:"7px 9px",borderRadius:7,cursor:"pointer"}}><Icon name="trash" size={14} color={C.dangerText}/></button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {rows.length===0&&<Card style={{textAlign:"center",color:C.textMuted,padding:"40px"}}>🎉 Sin alertas pendientes</Card>}
+        </div>
+      )}
+
+      {modal&&(
+        <Modal title="Nueva Alerta" onClose={()=>setModal(false)} width={460}>
+          <Fld label="Descripción"><input value={form.descripcion} onChange={e=>setForm({...form,descripcion:e.target.value})} style={inpSt}/></Fld>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+            <Fld label="Entidad">
+              <select value={form.entidad} onChange={e=>setForm({...form,entidad:e.target.value})} style={inpSt}>
+                {["DGI","CSS","Municipio","MICI","Otro"].map(e=><option key={e}>{e}</option>)}
+              </select>
+            </Fld>
+            <Fld label="Urgencia">
+              <select value={form.urgencia} onChange={e=>setForm({...form,urgencia:e.target.value})} style={inpSt}>
+                <option value="critica">Crítica</option><option value="alta">Alta</option>
+                <option value="media">Media</option><option value="baja">Baja</option>
+              </select>
+            </Fld>
+          </div>
+          <Fld label="Fecha de Vencimiento"><input type="date" value={form.fecha} onChange={e=>setForm({...form,fecha:e.target.value})} style={inpSt}/></Fld>
+          <Fld label="Cliente / Observación"><input value={form.cliente_nombre} onChange={e=>setForm({...form,cliente_nombre:e.target.value})} placeholder="Todos" style={inpSt}/></Fld>
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+            <Btn variant="secondary" onClick={()=>setModal(false)}>Cancelar</Btn>
+            <Btn onClick={save} loading={saving}>Guardar Alerta</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ROOT APP
+// ═══════════════════════════════════════════════════════════════════════════
+const AppShell = () => {
+  const { user, loading } = useAuth();
+  const [view, setView]   = useState("dashboard");
+
+  if (loading) return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:C.bg}}>
+      <div style={{textAlign:"center",color:C.textMuted}}>
+        <Icon name="refresh" size={32} color={C.accent}/><div style={{marginTop:12,fontSize:14}}>Cargando ContaPanamá...</div>
+      </div>
+    </div>
+  );
+
+  if (!user) return <AuthScreen/>;
+
+  const VIEWS = {
+    dashboard:     <DashboardView/>,
+    clientes:      <ClientesView/>,
+    transacciones: <TransaccionesView/>,
+    fiscal:        <FiscalView/>,
+    conciliacion:  <ConciliacionView/>,
+    reportes:      <ReportesView/>,
+    alertas:       <AlertasView/>,
+  };
+
+  return (
+    <>
+      <style>{FONTS}</style>
+      <style>{`*{font-family:'Plus Jakarta Sans',sans-serif;box-sizing:border-box;margin:0;padding:0;}input,select,textarea,button{font-family:inherit;}`}</style>
+      <div style={{display:"flex",minHeight:"100vh",background:C.bg}}>
+        <Sidebar active={view} setActive={setView}/>
+        <main style={{marginLeft:230,flex:1,padding:"36px 40px",minHeight:"100vh"}}>
+          {VIEWS[view]||null}
+        </main>
+      </div>
+    </>
+  );
+};
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppShell/>
+    </AuthProvider>
+  );
+}

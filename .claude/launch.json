@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "contapanama-proto",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["_run_proto/_serve.js", "5601", "index.html"],
+      "port": 5601
+    },
+    {
+      "name": "contapanama-os",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["_run_proto/_serve.js", "5602", "index-os.html"],
+      "port": 5602
+    },
+    {
+      "name": "contapanama-so",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["_run_proto/_serve.js", "5603", "index-so.html"],
+      "port": 5603
+    },
+    {
+      "name": "contapanama-live",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["_run_proto/_serve.js", "5173", "index-live.html"],
+      "port": 5173
+    }
+  ]
+}

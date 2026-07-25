@@ -1,0 +1,31 @@
+# Secretos — nunca versionar
+.env
+*.env
+!*.env.example
+*key*.txt
+*token*.json
+*token*.txt
+*secret*
+*.pem
+
+# Entornos y cache
+.venv/
+venv/
+node_modules/
+__pycache__/
+*.pyc
+.vercel/
+dist/
+build/
+.next/
+
+# Documentos y datos (pesados, se respaldan aparte)
+*.pdf
+*.xlsx
+*.xlsm
+*.docx
+*.png
+*.jpg
+*.jpeg
+*.mp4
+*.log

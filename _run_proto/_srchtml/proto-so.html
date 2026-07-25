@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>ContaPanamá — Sistema Operativo Financiero · Prototipo</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --ink: #0A0E10;
+    --ink-2: #161B1E;
+    --paper: #FFFFFF;
+    --bg: #FAF7F0;
+    --surface: #F2EEE3;
+    --line: #E3DFD2;
+    --line-2: #EEEBE0;
+
+    --teal: #0D4A47;
+    --teal-2: #0A3936;
+    --teal-50: #E2EAE9;
+
+    --gold: #C9A55A;
+    --gold-soft: #E8D9AE;
+    --gold-50: #F7F0DC;
+
+    --muted: #5A6166;
+    --muted-2: #8A8F94;
+    --muted-3: #B6B9BC;
+
+    --green: #1F6E54;
+    --green-soft: #DCE9E3;
+    --red: #A8442C;
+    --red-soft: #F2DDD5;
+    --amber: #A47A12;
+    --amber-soft: #F5E9CC;
+
+    --shadow-1: 0 1px 0 rgba(10,14,16,.025), 0 4px 14px rgba(10,14,16,.04);
+    --shadow-2: 0 1px 0 rgba(10,14,16,.04), 0 14px 36px rgba(10,14,16,.06);
+    --shadow-deep: 0 2px 0 rgba(10,14,16,.06), 0 30px 70px rgba(10,14,16,.12);
+  }
+
+  * { box-sizing: border-box }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Inter Tight", "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "ss01";
+    overflow: hidden;
+  }
+  body, #root { width: 100vw; height: 100vh; }
+
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum", "ss01" }
+  .serif { font-family: "Instrument Serif", Georgia, serif; font-weight: 400; letter-spacing: -0.015em }
+  .mono { font-family: "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.01em }
+
+  .display-l  { font-family: "Instrument Serif", serif; font-size: 84px;  line-height: 0.98; letter-spacing: -0.03em;  font-weight: 400 }
+  .display-m  { font-family: "Instrument Serif", serif; font-size: 64px;  line-height: 1.02; letter-spacing: -0.025em; font-weight: 400 }
+  .display-s  { font-family: "Instrument Serif", serif; font-size: 42px;  line-height: 1.05; letter-spacing: -0.02em;  font-weight: 400 }
+  .h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.15 }
+  .h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.01em;  line-height: 1.2 }
+  .h3 { font-size: 15px; font-weight: 700; letter-spacing: -0.005em; line-height: 1.3 }
+  .body-l { font-size: 15px; line-height: 1.55 }
+  .body   { font-size: 13.5px; line-height: 1.55 }
+  .body-s { font-size: 12.5px; line-height: 1.5 }
+  .caption { font-size: 11px; line-height: 1.4; color: var(--muted) }
+  .eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted-2) }
+  .eyebrow.teal { color: var(--teal) }
+  .eyebrow.gold { color: var(--gold) }
+  .eyebrow.with-bar::before {
+    content: ""; display: inline-block; width: 18px; height: 1px;
+    background: currentColor; margin-right: 10px; vertical-align: middle; opacity: 0.6;
+  }
+
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow-1);
+  }
+  .card.warm { background: var(--surface); border-color: var(--surface) }
+  .card.ink  { background: var(--ink); color: var(--bg); border-color: var(--ink) }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 9px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0.02em;
+  }
+  .pill.green { background: var(--green-soft); color: var(--green) }
+  .pill.red   { background: var(--red-soft); color: var(--red) }
+  .pill.amber { background: var(--amber-soft); color: var(--amber) }
+  .pill.gold  { background: var(--gold-50); color: #6B5217 }
+  .pill.teal  { background: var(--teal-50); color: var(--teal-2) }
+  .pill.dark  { background: var(--ink); color: var(--bg) }
+  .pill.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line) }
+  .pill .dot  { width: 5px; height: 5px; border-radius: 999px; background: currentColor }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 9px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 600;
+    border: 1px solid var(--line); background: var(--paper); color: var(--ink);
+    cursor: pointer; user-select: none;
+    font-family: inherit;
+    transition: transform .08s ease, box-shadow .15s ease, background .15s ease;
+  }
+  .btn:hover { transform: translateY(-0.5px); box-shadow: var(--shadow-1) }
+  .btn:active { transform: translateY(0); box-shadow: none }
+  .btn.ink   { background: var(--ink); color: var(--bg); border-color: var(--ink) }
+  .btn.ink:hover { background: var(--ink-2) }
+  .btn.gold  { background: var(--gold); color: #0A0E10; border-color: var(--gold) }
+  .btn.teal  { background: var(--teal); color: var(--bg); border-color: var(--teal) }
+  .btn.ghost { background: transparent }
+  .btn.s     { padding: 5px 10px; font-size: 11.5px; border-radius: 6px }
+  .btn.lg    { padding: 13px 20px; font-size: 14px; border-radius: 9px }
+
+  table.tbl { width: 100%; border-collapse: collapse }
+  .tbl th { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); text-align: left; font-weight: 600; padding: 9px 14px; border-bottom: 1px solid var(--line); background: var(--bg) }
+  .tbl td { padding: 11px 14px; border-bottom: 1px solid var(--line-2); font-size: 12.5px }
+  .tbl tr:last-child td { border-bottom: 0 }
+  .tbl tr.hoverable:hover td { background: var(--bg); cursor: pointer }
+  .tbl .r { text-align: right }
+  .tbl .muted { color: var(--muted) }
+
+  /* WOW: breathing dot */
+  @keyframes pulse-breath {
+    0%, 100% { transform: scale(1); opacity: .85 }
+    50% { transform: scale(1.25); opacity: 1 }
+  }
+  .breathe { animation: pulse-breath 3.2s ease-in-out infinite }
+
+  /* WOW: subtle entrance */
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(8px) }
+    to { opacity: 1; transform: translateY(0) }
+  }
+  .anim-in { animation: fade-up .42s cubic-bezier(.2,.7,.2,1) both }
+  .anim-in.d1 { animation-delay: .05s } .anim-in.d2 { animation-delay: .1s }
+  .anim-in.d3 { animation-delay: .15s } .anim-in.d4 { animation-delay: .2s }
+  .anim-in.d5 { animation-delay: .25s } .anim-in.d6 { animation-delay: .3s }
+
+  /* WOW: confetti gold flake */
+  @keyframes confetti-fall {
+    0% { transform: translate3d(0,-40px,0) rotate(0); opacity: 0 }
+    8% { opacity: 1 }
+    100% { transform: translate3d(var(--dx, 80px), 100vh, 0) rotate(720deg); opacity: 0 }
+  }
+  .confetti-piece {
+    position: fixed; top: 0; width: 8px; height: 14px;
+    background: var(--gold); border-radius: 1px;
+    animation: confetti-fall 2.6s cubic-bezier(.18,.9,.4,1) forwards;
+    z-index: 9999; pointer-events: none;
+  }
+
+  /* WOW: count-up number */
+  @keyframes shimmer {
+    0%, 100% { color: var(--ink) }
+    50% { color: var(--teal) }
+  }
+  .shimmer-once { animation: shimmer 1.6s ease 1 }
+
+  /* Toast */
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(12px) translateX(-50%) }
+    to { opacity: 1; transform: translateY(0) translateX(-50%) }
+  }
+  .toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: var(--bg);
+    padding: 11px 18px; border-radius: 999px;
+    font-size: 13px; font-weight: 500;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: var(--shadow-deep); z-index: 1000;
+    animation: toast-in .25s ease-out;
+  }
+
+  /* Drawer */
+  @keyframes drawer-in {
+    from { transform: translateX(100%) }
+    to { transform: translateX(0) }
+  }
+  .drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 480px;
+    background: var(--paper); box-shadow: var(--shadow-deep);
+    border-left: 1px solid var(--line); z-index: 100;
+    display: flex; flex-direction: column;
+    animation: drawer-in .25s cubic-bezier(.2,.7,.2,1);
+  }
+  .scrim {
+    position: fixed; inset: 0; background: rgba(10,14,16,.4);
+    z-index: 99; animation: fade-up .2s both;
+  }
+
+  input, select, textarea {
+    font-family: inherit; font-size: 13.5px;
+    padding: 10px 12px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--paper);
+    color: var(--ink); outline: none;
+    transition: border-color .15s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--teal) }
+
+  /* Scrollbars subtle */
+  ::-webkit-scrollbar { width: 10px; height: 10px }
+  ::-webkit-scrollbar-track { background: transparent }
+  ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 99px; border: 2px solid var(--bg) }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted-3) }
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="proto-so/shared.jsx"></script>
+<script type="text/babel" src="proto-so/wow.jsx"></script>
+<script type="text/babel" src="proto-so/state.jsx"></script>
+<script type="text/babel" src="proto-so/shell.jsx"></script>
+<script type="text/babel" src="proto-so/onboarding.jsx"></script>
+<script type="text/babel" src="proto-so/screen-hoy.jsx"></script>
+<script type="text/babel" src="proto-so/screen-plata.jsx"></script>
+<script type="text/babel" src="proto-so/screen-impuestos.jsx"></script>
+<script type="text/babel" src="proto-so/screen-documentos.jsx"></script>
+<script type="text/babel" src="proto-so/screen-cpa.jsx"></script>
+<script type="text/babel" src="proto-so/app.jsx"></script>
+
+</body>
+</html>
