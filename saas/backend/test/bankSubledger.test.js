@@ -37,6 +37,12 @@ test('statement comparison keeps gross flows and balances distinct, never certif
   assert.equal(result.diferencias.saldo_final,0);assert.equal(result.diferencias.creditos,10);assert.equal(result.diferencias.saldo_inicial,-10);
   assert.equal(result.saldo_verificado,false);assert.equal(result.revision_cpa,'pendiente');
 });
+
+test('restored rows in another physical order retain identical account and month order',()=>{
+  const snapshot=fixture(),before=bankSubledger(snapshot,uid,{anio:'2048'});
+  snapshot.accounts.reverse();snapshot.entries.reverse();snapshot.folios.reverse();snapshot.bank_dimensions.reverse();
+  assert.deepEqual(bankSubledger(snapshot,uid,{anio:'2048'}),before);
+});
 test('read-only report rejects unapproved, damaged or foreign scope, and never assigns old dimensions',()=>{
   const snapshot=fixture(),before=structuredClone(snapshot);
   bankSubledger(snapshot,uid,{anio:'2048'});assert.deepEqual(snapshot,before);

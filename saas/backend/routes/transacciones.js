@@ -324,6 +324,7 @@ router.post('/', [
         if (previous.length) {
           if (!sameDocument(previous[0], { cliente_id, fecha, descripcion, tipo, monto, itbms })) fail('Ese identificador ya corresponde a otro documento.', 409);
           replay = true;
+          db.touchJournal(previous[0].id);
           return previous[0];
         }
       }
@@ -358,6 +359,7 @@ router.post('/', [
 
       await db.query(`INSERT INTO audit_events(usuario_id,cliente_id,accion,objeto_tipo,objeto_id,despues_json)
         VALUES($1,$2,'transaccion_creada','transaccion',$3,$4)`, [uid, rows[0].cliente_id, rows[0].id, rows[0]]);
+      db.touchJournal(rows[0].id);
       return rows[0];
     });
     res.status(replay ? 200 : 201).json(replay ? { ...created, repetido: true } : created);
@@ -436,6 +438,7 @@ router.put('/:id', [
 
     const writeContext = {};
     const updated = await withAccountingWrite(req.user.id, async client => {
+      client.touchJournal(current.id);
       const locked = await client.query('SELECT * FROM transacciones WHERE id=$1 AND usuario_id=$2 FOR UPDATE', [current.id, req.user.id]);
       if (locked.rows.length && req.body.revision_esperada) {
         const { rows: events } = await client.query(`SELECT despues_json FROM audit_events
@@ -514,6 +517,7 @@ router.post('/:id/confirmar-borrador', async (req, res) => {
     ].filter(Boolean).join(' ');
 
     const updated = await withAccountingWrite(req.user.id, async client => {
+      client.touchJournal(req.params.id);
       const locked = await client.query('SELECT * FROM transacciones WHERE id=$1 AND usuario_id=$2 FOR UPDATE', [req.params.id, req.user.id]);
       if (!locked.rows.length || JSON.stringify(locked.rows[0]) !== JSON.stringify(current[0])) fail('El documento cambio. Actualice e intente nuevamente.', 409);
       await assertPeriodOpen(req.user.id, current[0].periodo || periodOf(current[0].fecha), current[0].cliente_id || null, client);
@@ -579,6 +583,7 @@ router.delete('/:id', async (req, res) => {
     await assertPeriodOpen(req.user.id, row.periodo || periodOf(row.fecha), row.cliente_id || null);
     if (row.fecha_pago) await assertPeriodOpen(req.user.id, periodOf(row.fecha_pago), row.cliente_id || null);
     await withAccountingWrite(req.user.id, async db => {
+      db.touchJournal(row.id);
       const locked = await db.query('SELECT * FROM transacciones WHERE id=$1 AND usuario_id=$2 FOR UPDATE', [row.id, req.user.id]);
       if (!locked.rows.length || JSON.stringify(locked.rows[0]) !== JSON.stringify(row)) fail('El documento cambio. Actualice e intente nuevamente.', 409);
       await assertNoPaymentHistory(db, req.user.id, row.id);

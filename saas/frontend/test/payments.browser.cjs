@@ -169,6 +169,7 @@ async function run() {
     await row.getByRole('button', { name: 'Cobrar', exact: true }).waitFor();
     await require('./bankReconciliation.browser.scenario.cjs')({page,api,client,account,period,out,bankKeys});
     await require('./bankSettlement.browser.scenario.cjs')({page,api,client,account,period,out});
+    if (sqlMode) await require('./ledgerSql.browser.scenario.cjs')({page,api,client,period,out});
     assert.deepEqual(errors, []);
   } finally {
     shuttingDown = true;

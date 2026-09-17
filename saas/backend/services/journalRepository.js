@@ -1,4 +1,4 @@
-const { query } = require('../db');
+const { query, withTransaction } = require('../db');
 const { CHART_OF_ACCOUNTS, buildJournal } = require('./accountingEngine');
 const { isRegisteredTransaction } = require('./transactionStatus');
 const { verifyEntry, journalPlan, incorporationPreview, publicJournal, hash } = require('./journalLedger');
@@ -6,6 +6,8 @@ const { fail } = require('./paymentLedger');
 const { registryPreview, planRegistry, attachFolios } = require('./entityBooks');
 const { planBankDimensions, verifyBankDimensions } = require('./bankPosting');
 const { ledgerConsistency } = require('./ledgerConsistency');
+const { planIncremental } = require('./journalIncremental');
+const incrementalSql = require('./journalIncrementalSql');
 
 async function sourceTransactions(db, uid) {
   const { rows } = await db.query('SELECT * FROM transacciones WHERE usuario_id=$1 ORDER BY fecha, created_at, id', [uid]);
@@ -115,9 +117,9 @@ async function prepareJournalWrite(db, uid) {
   }
 }
 
-async function appendEntries(db, uid, entries, existing, assertOpen) {
+async function appendEntries(db, uid, entries, existing, assertOpen, subset) {
   if (existing.some(entry => !entry.numero_libro)) fail('Revise y asigne los libros por cliente antes de publicar mas asientos.', 409);
-  let number = Math.max(0, ...existing.map(e => e.numero));
+  let number = subset ? subset.max : Math.max(0, ...existing.map(e => e.numero));
   const posted = [];
   for (const entry of entries) {
     if (assertOpen) await assertOpen(db, uid, entry.periodo, entry.cliente_id);
@@ -137,11 +139,14 @@ async function appendEntries(db, uid, entries, existing, assertOpen) {
     }
     posted.push({ ...entry, usuario_id: uid, numero: number, requiere_folio: true, requiere_dimension_bancaria: true });
   }
-  if (posted.length) await appendEntityFolios(db, uid, [...existing, ...posted]);
   if (posted.length) {
-    const previous=(await db.query('SELECT * FROM dimensiones_bancarias WHERE usuario_id=$1',[uid])).rows;
-    const accounts=(await db.query('SELECT * FROM cuentas_bancarias WHERE usuario_id=$1',[uid])).rows;
-    const dimensions=planBankDimensions(uid,posted,existing,previous,await sourceTransactions(db,uid),accounts);
+    if (subset) await incrementalSql.appendFolios(db, uid, posted, (await bookStatus(db, uid)).id);
+    else await appendEntityFolios(db, uid, [...existing, ...posted]);
+  }
+  if (posted.length) {
+    const previous=subset ? subset.dimensions : (await db.query('SELECT * FROM dimensiones_bancarias WHERE usuario_id=$1',[uid])).rows;
+    const accounts=subset ? subset.accounts : (await db.query('SELECT * FROM cuentas_bancarias WHERE usuario_id=$1',[uid])).rows;
+    const dimensions=planBankDimensions(uid,posted,existing,previous,subset ? subset.transactions : await sourceTransactions(db,uid),accounts);
     for(const row of dimensions)await db.query(`INSERT INTO dimensiones_bancarias
       (id,usuario_id,cliente_id,asiento_id,orden,cuenta_bancaria_id,asiento_hash,fuente,dimension_hash,created_at,asiento_origen_id)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,[row.id,uid,row.cliente_id,row.asiento_id,row.orden,row.cuenta_bancaria_id,
@@ -149,15 +154,56 @@ async function appendEntries(db, uid, entries, existing, assertOpen) {
   }
 }
 
-async function syncJournal(db, uid, assertOpen, correction) {
+async function syncJournal(db, uid, assertOpen, correction, touched = []) {
+  const mode = process.env.CONTAPANAMA_JOURNAL_SYNC || 'full';
+  if (!['full','shadow','incremental'].includes(mode)) fail('CONTAPANAMA_JOURNAL_SYNC invalido.', 503);
   if (!await bookStatus(db, uid)) return;
-  const transactions = await sourceTransactions(db, uid);
-  const existing = await storedEntries(db, uid);
-  const entries = journalPlan(transactions, existing, { reasons: correction ? { [correction.documentId]: correction.reason } : {} });
+  const options = { reasons: correction ? { [correction.documentId]: correction.reason } : {} };
+  const pendingRows = (await db.query('SELECT transaccion_id,version FROM journal_pending_sources WHERE usuario_id=$1', [uid])).rows;
+  const pending = pendingRows.map(r => r.transaccion_id);
+  // Unknown or out-of-band writes retain the full CPA correction gate.
+  const eligible = touched.length > 0 && pending.every(id => touched.includes(id));
+  let subset, incremental, existing, entries;
+  if (mode !== 'full' && eligible) {
+    if (mode === 'shadow') await db.query('SAVEPOINT shadow_probe');
+    try {
+      await incrementalSql.guardFolios(db, uid);
+      subset = await incrementalSql.readSubset(db, uid, touched);
+      incremental = planIncremental(subset.transactions, subset.existing, options);
+      if (mode === 'shadow') await db.query('RELEASE SAVEPOINT shadow_probe');
+    } catch (error) {
+      if (mode !== 'shadow') throw error;
+      await db.query('ROLLBACK TO SAVEPOINT shadow_probe');
+      await db.query('RELEASE SAVEPOINT shadow_probe');
+      subset = null;
+      const detail = { touched, error: error.message, persisted_algorithm: 'full' };
+      console.error(JSON.stringify({event:'journal_shadow_error',usuario_id:uid,...detail}));
+      await db.query(`INSERT INTO audit_events(usuario_id,accion,objeto_tipo,objeto_id,despues_json)
+        VALUES($1,'journal_shadow_error','journal_sync',$1,$2)`,[uid,detail]);
+    }
+  }
+  if (mode === 'incremental' && subset) { existing = subset.existing; entries = incremental; }
+  else {
+    existing = await storedEntries(db, uid);
+    entries = journalPlan(await sourceTransactions(db, uid), existing, options);
+    if (mode === 'shadow' && subset) {
+      const fullFolios = {};
+      for (const e of existing) fullFolios[e.cliente_id||''] = Math.max(fullFolios[e.cliente_id||'']||0,e.numero_libro||0);
+      const comparison = incrementalSql.comparePlans(entries, incremental, Math.max(0,...existing.map(e=>e.numero)), subset.max, fullFolios, subset.folioMax);
+      if (!comparison.equal) console.error(JSON.stringify({ event: 'journal_shadow_divergence', usuario_id: uid, ...comparison }));
+      await db.query(`INSERT INTO audit_events(usuario_id,accion,objeto_tipo,objeto_id,despues_json)
+        VALUES($1,$2,'journal_sync',$1,$3)`, [uid, comparison.equal ? 'journal_shadow_match' : 'journal_shadow_divergence', comparison.equal
+          ? { touched, full_hash: comparison.full_hash, incremental_hash: comparison.incremental_hash, entries: entries.length }
+          : { touched, ...comparison }]);
+    }
+    subset = null;
+  }
   if (entries.some(entry => entry.rectifica_id && (!correction?.reason || entry.transaccion_id !== correction.documentId))) {
     fail('Hay cambios del libro sin una correccion revisada. Revise el documento y su motivo.', 409);
   }
-  await appendEntries(db, uid, entries, existing, assertOpen);
+  await appendEntries(db, uid, entries, existing, assertOpen, subset);
+  await db.query(`DELETE FROM journal_pending_sources p USING unnest($2::uuid[],$3::bigint[]) AS verified(id,version)
+    WHERE p.usuario_id=$1 AND p.transaccion_id=verified.id AND p.version=verified.version`, [uid,pending,pendingRows.map(r=>r.version)]);
 }
 
 async function previewBook(uid, db = { query }) {
@@ -188,7 +234,11 @@ async function incorporateBook(db, uid, fingerprint) {
 }
 
 // Read-only: reports where documentos, libro and report-style totals disagree.
-async function readConsistency(uid, scope = {}, db = { query }) {
+async function readConsistency(uid, scope = {}, db) {
+  if (!db) return withTransaction(async snapshot => {
+    await snapshot.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
+    return readConsistency(uid, scope, snapshot);
+  });
   if (!await bookStatus(db, uid)) return { estado: 'pendiente_incorporacion', pendientes: [], cuentas_divergentes: [], errores: [] };
   return ledgerConsistency(await sourceTransactions(db, uid), await storedEntries(db, uid), scope);
 }

@@ -9,6 +9,19 @@ const expense = { id: 'doc-2', cliente_id: 'client-1', cliente_nombre: 'QA', fec
   descripcion: 'Multa', tipo: 'gasto', categoria_contable: 'gastos_operativos', monto: 150, itbms: 10.5, deducible: false, estado_pago: 'pendiente' };
 const numbered = entries => entries.map((e, i) => ({ ...e, numero: i + 1 }));
 
+test('client scope excludes other documentary totals and exposes out-of-scope drift', () => {
+  const other = { ...invoice, id: 'other', cliente_id: 'client-2', monto: 200 };
+  const entries = numbered(journalPlan([invoice, other]));
+  const result = ledgerConsistency([invoice, { ...other, monto: 300 }], entries, { cliente_id: 'client-1', periodo: '2030-05' });
+  assert.equal(result.estado, 'consistente');
+  assert.equal(result.totales.documentos.ingresos, 1000);
+  assert.equal(result.pendientes.length, 0);
+  assert.equal(result.pendientes_fuera_del_filtro, 2);
+  const detail = ledgerConsistency([invoice, { ...other, monto: 300 }], entries, { cliente_id: 'client-2' });
+  assert.equal(detail.pendientes[0].cliente_id, 'client-2');
+  assert.equal(detail.pendientes[0].periodo, '2030-05');
+});
+
 test('published book that matches its documents is consistent, with report gaps explained', () => {
   const entries = numbered(journalPlan([invoice, expense]));
   const result = ledgerConsistency([invoice, expense], entries, { periodo: '2030-05' });

@@ -397,6 +397,36 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_asiento_version ON asientos_contables(usua
 CREATE UNIQUE INDEX IF NOT EXISTS idx_asiento_rectificado ON asientos_contables(rectifica_id) WHERE rectifica_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_asiento_linea_orden ON asiento_lineas(asiento_id, orden);
 
+-- External SQL writes remain pending until verified by the accounting transaction.
+DO $$ BEGIN
+  IF to_regclass('public.journal_pending_sources') IS NULL THEN
+    CREATE TABLE journal_pending_sources (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+      transaccion_id UUID NOT NULL,
+      UNIQUE(usuario_id,transaccion_id)
+    );
+    INSERT INTO journal_pending_sources(usuario_id,transaccion_id) SELECT usuario_id,id FROM transacciones;
+  END IF;
+END $$;
+ALTER TABLE journal_pending_sources ADD COLUMN IF NOT EXISTS version BIGINT NOT NULL DEFAULT 1;
+CREATE OR REPLACE FUNCTION mark_journal_source_pending() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE owner_id UUID; document_id UUID;
+BEGIN
+  IF TG_OP='DELETE' THEN
+    owner_id := OLD.usuario_id;
+    IF TG_TABLE_NAME='transacciones' THEN document_id := OLD.id; ELSE document_id := OLD.transaccion_id; END IF;
+  ELSE
+    owner_id := NEW.usuario_id;
+    IF TG_TABLE_NAME='transacciones' THEN document_id := NEW.id; ELSE document_id := NEW.transaccion_id; END IF;
+  END IF;
+  INSERT INTO journal_pending_sources(usuario_id,transaccion_id) VALUES(owner_id,document_id)
+    ON CONFLICT(usuario_id,transaccion_id) DO UPDATE SET version=journal_pending_sources.version+1;
+  RETURN NULL;
+END $$;
+CREATE OR REPLACE TRIGGER trg_journal_source_pending AFTER INSERT OR UPDATE OR DELETE ON transacciones
+  FOR EACH ROW EXECUTE FUNCTION mark_journal_source_pending();
+
 -- Separate immutable dimensions preserve existing financial hashes and historical folios.
 CREATE TABLE IF NOT EXISTS dimensiones_bancarias (
   id UUID PRIMARY KEY,
@@ -766,6 +796,8 @@ CREATE TABLE IF NOT EXISTS pagos_transacciones (
 );
 CREATE INDEX IF NOT EXISTS idx_pagos_usuario_fecha ON pagos_transacciones(usuario_id, fecha);
 CREATE INDEX IF NOT EXISTS idx_pagos_transaccion ON pagos_transacciones(transaccion_id);
+CREATE OR REPLACE TRIGGER trg_journal_payment_pending AFTER INSERT OR UPDATE OR DELETE ON pagos_transacciones
+  FOR EACH ROW EXECUTE FUNCTION mark_journal_source_pending();
 
 ALTER TABLE pagos_transacciones ADD COLUMN IF NOT EXISTS cuenta_bancaria_id UUID REFERENCES cuentas_bancarias(id) ON DELETE RESTRICT;
 CREATE OR REPLACE FUNCTION fn_pago_cuenta_guard() RETURNS TRIGGER AS $$

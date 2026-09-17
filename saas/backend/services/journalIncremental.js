@@ -1,10 +1,8 @@
 const { journalPlan } = require('./journalLedger');
 const { paymentsFor } = require('./paymentLedger');
 
-// Reference implementation of the incremental contract (ADR-002). It is NOT wired into
-// writes yet: syncJournal still replans the whole book. The contract tests prove that
-// planning only the touched documents yields exactly the entries the full plan would
-// produce for them, which is what a future O(k) implementation must preserve.
+// The same planner on a verified document subset. SQL integration is gated by
+// CONTAPANAMA_JOURNAL_SYNC; the full planner remains the default and shadow oracle.
 
 // Every origen_clave a document can own in the book.
 function affectedKeys(tx) {

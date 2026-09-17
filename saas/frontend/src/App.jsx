@@ -6,11 +6,15 @@ import { bankAccountLabel, bankAttempt, pendingBankRequests } from "./bankAccoun
 import { useRef } from "react";
 import BankStatements from "./BankStatements.jsx";
 import BankSubledger from "./BankSubledger.jsx";
+import LedgerConsistency from "./LedgerConsistency.jsx";
 
 // --------------------------------------------------------------------------
 //  API LAYER - todas las llamadas al backend centralizadas
 // --------------------------------------------------------------------------
 const API_URL = import.meta.env.VITE_API_URL || "";
+const reviewDemo = import.meta.env.VITE_SQL_REVIEW === '1'
+  ? { email: 'qa-review@example.test', password: '' }
+  : { email: 'admin@contapanama.pa', password: '' };
 const apiClient = createApiClient(API_URL);
 const isRegisteredTransaction = tx => (tx.estado_contable ?? 'registrado') === 'registrado';
 
@@ -313,7 +317,7 @@ const AuthScreen = () => {
 
   const handleDemoLogin = async () => {
     if (busy) return;
-    const demo = { email: "admin@contapanama.pa", password: '' };
+    const demo = reviewDemo;
     setForm(current => ({ ...current, ...demo }));
     setErr(""); setBusy(true);
     try { await login(demo.email, demo.password); }
@@ -342,7 +346,7 @@ const AuthScreen = () => {
           {mode==="login"?"Accede a tu plataforma contable":"Registra tu cuenta de contador"}
         </div>
 
-        {mode==="login" && (
+        {mode==="login" && import.meta.env.DEV && (
           <button
             type="button"
             onClick={handleDemoLogin}
@@ -384,9 +388,9 @@ const AuthScreen = () => {
           )}
         </div>
 
-        <div style={{marginTop:24,padding:"12px 16px",background:C.infoBg,borderRadius:8,fontSize:12,color:C.infoText}}>
-          <strong>Demo:</strong> admin@contapanama.pa / [REDACTED_QA_PASSWORD]
-        </div>
+        {import.meta.env.DEV && <div style={{marginTop:24,padding:"12px 16px",background:C.infoBg,borderRadius:8,fontSize:12,color:C.infoText,overflowWrap:"anywhere"}}>
+          <strong>{import.meta.env.VITE_SQL_REVIEW === '1' ? 'Revisión SQL, datos sintéticos:' : 'Demo:'}</strong> {reviewDemo.email} / {reviewDemo.password}
+        </div>}
       </form>
     </div>
   );
@@ -412,32 +416,32 @@ const NAV = [
 const Sidebar = ({active,setActive}) => {
   const {user,logout} = useAuth();
   return (
-    <div style={{width:230,background:C.nav,display:"flex",flexDirection:"column",height:"100vh",position:"fixed",left:0,top:0,zIndex:100}}>
-      <div style={{padding:"24px 20px 20px"}}>
+    <div className="app-sidebar" style={{width:230,background:C.nav,display:"flex",flexDirection:"column",height:"100vh",position:"fixed",left:0,top:0,zIndex:100}}>
+      <div className="sidebar-brand" style={{padding:"24px 20px 20px"}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <div style={{width:34,height:34,background:C.accent,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"}}>
             <Icon name="dollar" size={18} color="#fff"/>
           </div>
-          <div>
+          <div className="sidebar-brand-text">
             <div style={{color:"#fff",fontWeight:700,fontSize:15,lineHeight:1.2}}>ContaPanamá</div>
             <div style={{color:"#64748b",fontSize:11,marginTop:1}}>SaaS Contable</div>
           </div>
         </div>
       </div>
-      <div style={{padding:"0 12px",flex:1,overflowY:"auto"}}>
+      <div className="sidebar-navigation" style={{padding:"0 12px",flex:1,overflowY:"auto"}}>
         {NAV.map(item=>{
           const on=active===item.id;
           return (
-            <button key={item.id} onClick={()=>setActive(item.id)}
+            <button key={item.id} aria-label={item.label} title={item.label} onClick={()=>setActive(item.id)}
               style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 12px",borderRadius:8,border:"none",cursor:"pointer",marginBottom:2,background:on?"#0e3a5c":"transparent",color:on?"#e0f2fe":"#94a3b8",fontWeight:on?600:400,fontSize:14,textAlign:"left",fontFamily:"inherit"}}>
               <Icon name={item.icon} size={17} color={on?C.accent:"#64748b"}/>
-              {item.label}
+              <span className="nav-label">{item.label}</span>
             </button>
           );
         })}
       </div>
-      <div style={{padding:"12px 12px 20px",borderTop:"1px solid #1e293b"}}>
-        <div style={{padding:"10px 12px",display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+      <div className="sidebar-footer" style={{padding:"12px 12px 20px",borderTop:"1px solid #1e293b"}}>
+        <div className="sidebar-user" style={{padding:"10px 12px",display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
           <div style={{width:32,height:32,borderRadius:"50%",background:"#1d4ed8",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:"#bfdbfe",flexShrink:0}}>
             {user?.nombre?.slice(0,2).toUpperCase()}
           </div>
@@ -446,8 +450,8 @@ const Sidebar = ({active,setActive}) => {
             <div style={{color:"#475569",fontSize:11,textTransform:"capitalize"}}>{user?.rol}</div>
           </div>
         </div>
-        <button onClick={logout} style={{display:"flex",alignItems:"center",gap:8,width:"100%",padding:"8px 12px",borderRadius:7,border:"none",cursor:"pointer",background:"transparent",color:"#64748b",fontSize:13,fontFamily:"inherit"}}>
-          <Icon name="logout" size={15} color="#64748b"/> Cerrar sesión
+        <button aria-label="Cerrar sesión" title="Cerrar sesión" onClick={logout} style={{display:"flex",alignItems:"center",gap:8,width:"100%",padding:"8px 12px",borderRadius:7,border:"none",cursor:"pointer",background:"transparent",color:"#64748b",fontSize:13,fontFamily:"inherit"}}>
+          <Icon name="logout" size={15} color="#64748b"/> <span className="nav-label">Cerrar sesión</span>
         </button>
       </div>
     </div>
@@ -1857,31 +1861,38 @@ const ContabilidadView = () => {
   const queryResumen = `anio=${anioResumen}${clienteId?`&cliente_id=${clienteId}`:""}`;
   const mesNombre = periodo => new Date(`${periodo}-01T00:00:00`).toLocaleDateString("es-PA",{month:"short"}).replace(".","");
 
+  const loadAbort = useRef(null);
+  const loadEpoch = useRef(0);
   const load = useCallback(async()=>{
+    loadAbort.current?.abort();
+    const controller = new AbortController(); loadAbort.current = controller;
+    const epoch = ++loadEpoch.current;
+    const get = path => api.get(path, { signal: controller.signal });
     setBusy(true); setErr(null);
     try{
       const [bal,asi,pc,cl,ci,ce,cp,cc,ca,ag,rm,mg,lb,le] = await Promise.all([
-        api.get(`/api/contabilidad/balance-comprobacion?${queryPeriodo}`),
-        api.get(`/api/contabilidad/asientos?${queryPeriodo}`),
-        api.get("/api/contabilidad/plan-cuentas"),
-        api.get("/api/clientes"),
-        api.get(`/api/contabilidad/cierre?${queryPeriodo}`),
-        api.get(`/api/contabilidad/cierre-estado?${queryPeriodo}`),
-        api.get(`/api/contabilidad/cierres-periodo?anio=${anioResumen}${clienteId?`&cliente_id=${clienteId}`:""}`),
-        api.get(`/api/contabilidad/cierres-clientes?${modo === "mensual" ? `periodo=${periodo}` : `anio=${anio}`}`),
-        api.get(`/api/contabilidad/cartera?${modo === "mensual" ? `periodo=${periodo}` : `anio=${anio}`}`),
-        api.get(`/api/contabilidad/antiguedad?${queryPeriodo}&tipo=${tipoAntiguedad}`),
-        api.get(`/api/contabilidad/resumen-mensual?${queryResumen}`),
-        api.get(`/api/contabilidad/mayor-general?${queryPeriodo}`),
-        api.get("/api/contabilidad/libro").catch(error => {
+        get(`/api/contabilidad/balance-comprobacion?${queryPeriodo}`),
+        get(`/api/contabilidad/asientos?${queryPeriodo}`),
+        get("/api/contabilidad/plan-cuentas"),
+        get("/api/clientes"),
+        get(`/api/contabilidad/cierre?${queryPeriodo}`),
+        get(`/api/contabilidad/cierre-estado?${queryPeriodo}`),
+        get(`/api/contabilidad/cierres-periodo?anio=${anioResumen}${clienteId?`&cliente_id=${clienteId}`:""}`),
+        get(`/api/contabilidad/cierres-clientes?${modo === "mensual" ? `periodo=${periodo}` : `anio=${anio}`}`),
+        get(`/api/contabilidad/cartera?${modo === "mensual" ? `periodo=${periodo}` : `anio=${anio}`}`),
+        get(`/api/contabilidad/antiguedad?${queryPeriodo}&tipo=${tipoAntiguedad}`),
+        get(`/api/contabilidad/resumen-mensual?${queryResumen}`),
+        get(`/api/contabilidad/mayor-general?${queryPeriodo}`),
+        get("/api/contabilidad/libro").catch(error => {
           if (error.status === 404) return { estado: "servidor_pendiente" };
           throw error;
         }),
-        api.get("/api/contabilidad/libros-entidad").catch(error => {
+        get("/api/contabilidad/libros-entidad").catch(error => {
           if (error.status === 404) return { estado: "servidor_pendiente", data: [] };
           throw error;
         }),
       ]);
+      if (epoch !== loadEpoch.current || controller.signal.aborted) return;
       setBalance(bal);
       setAsientos(asi.data||[]);
       setPlan(pc.data||[]);
@@ -1899,13 +1910,13 @@ const ContabilidadView = () => {
       setLibrosEntidad(le);
       const selected = cuenta || pc.data?.[0]?.codigo || "1020";
       setCuenta(selected);
-      const my = await api.get(`/api/contabilidad/mayor/${selected}?${queryPeriodo}`);
-      setMayor(my);
-    }catch(e){setErr(e.message);}
-    finally{setBusy(false);}
+      const my = await get(`/api/contabilidad/mayor/${selected}?${queryPeriodo}`);
+      if (epoch === loadEpoch.current && !controller.signal.aborted) setMayor(my);
+    }catch(e){if (epoch === loadEpoch.current && !controller.signal.aborted) setErr(e.message);}
+    finally{if (epoch === loadEpoch.current && !controller.signal.aborted) setBusy(false);}
   },[queryPeriodo,queryResumen,cuenta,tipoAntiguedad]);
 
-  useEffect(()=>{load();},[load]);
+  useEffect(()=>{load();return()=>loadAbort.current?.abort();},[load]);
 
   const cargarMayor = async codigo => {
     setCuenta(codigo);
@@ -2026,7 +2037,7 @@ const ContabilidadView = () => {
   };
 
   return (
-    <div>
+    <div className="contabilidad-view">
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",marginBottom:28,gap:16}}>
         <div>
           <div style={{fontSize:22,fontWeight:700,color:C.text,whiteSpace:"nowrap"}}>Contabilidad</div>
@@ -2066,6 +2077,7 @@ const ContabilidadView = () => {
       </div>
 
       {err&&<ErrBox msg={err} onRetry={load}/>}
+      <LedgerConsistency api={api} query={queryPeriodo} refresh={busy} book={libro} clientName={clientes.find(c=>c.id===clienteId)?.nombre} period={modo==="mensual"?periodo:anio} C={C} Icon={Icon}/>
       {libro&&<section aria-label="Estado del libro contable" style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12,padding:"14px 0",marginBottom:16,borderBottom:`1px solid ${C.border}`}}>
         <div style={{display:"flex",gap:10,alignItems:"center",minWidth:0}}>
           <Icon name={libro.estado==="incorporado"?"check":"journal"} size={20}/>
@@ -4139,7 +4151,7 @@ const AppShell = () => {
     <>
       <div style={{display:"flex",minHeight:"100vh",background:C.bg}}>
         <Sidebar active={view} setActive={setView}/>
-        <main style={{marginLeft:230,flex:1,minWidth:0,padding:"36px 40px",minHeight:"100vh"}}>
+        <main className="app-main" style={{marginLeft:230,flex:1,minWidth:0,padding:"36px 40px",minHeight:"100vh"}}>
           {VIEWS[view]||null}
         </main>
       </div>
@@ -4152,6 +4164,15 @@ export default function App() {
     <>
       <style>{FONTS}</style>
       <style>{`*{font-family:'Plus Jakarta Sans',sans-serif;box-sizing:border-box;margin:0;padding:0;}input,select,textarea,button{font-family:inherit;}`}</style>
+      <style>{`@media(max-width:700px){
+        .app-sidebar{width:60px!important}.sidebar-brand{padding:18px 13px!important}
+        .sidebar-brand-text,.app-sidebar .nav-label,.sidebar-user{display:none!important}
+        .sidebar-navigation{padding:0 7px!important}.sidebar-navigation button{justify-content:center;padding:12px!important}
+        .sidebar-footer{padding:12px 7px!important}.sidebar-footer button{justify-content:center}
+        .app-main{margin-left:60px!important;padding:24px 12px!important;max-width:calc(100% - 60px)}
+        .app-main input,.app-main select{max-width:100%}
+        .contabilidad-view [style*="grid-template-columns"]{grid-template-columns:minmax(0,1fr)!important}
+      }`}</style>
       <AuthProvider>
         <AppShell/>
       </AuthProvider>

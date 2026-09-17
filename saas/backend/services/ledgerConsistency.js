@@ -15,6 +15,7 @@ const sumCents = rows => rows.reduce((sum, row) => sum + cents(row.saldo), 0);
 // Report-style totals (dashboard, estado de resultados, /resumen) work on document fields.
 function documentTotals(transactions, scope = {}) {
   const rows = transactions.filter(isRegisteredTransaction).filter(tx => !scope.periodo || String(tx.periodo || String(tx.fecha).slice(0, 7)) === scope.periodo)
+    .filter(tx => !scope.cliente_id || tx.cliente_id === scope.cliente_id)
     .filter(tx => !scope.anio || String(tx.fecha).startsWith(`${scope.anio}-`));
   const sum = (filter, field) => rows.filter(filter).reduce((total, tx) => total + cents(tx[field]), 0);
   return {
@@ -58,7 +59,9 @@ function ledgerConsistency(transactions, entries, scope = {}) {
     result.integridad = 'fallida';
     result.errores.push(error.message);
   }
-  result.pendientes = pending.map(entry => ({ origen_clave: entry.origen_clave, transaccion_id: entry.transaccion_id,
+  result.pendientes_fuera_del_filtro = pending.filter(entry => !matchesScope(entry, scope)).length;
+  result.pendientes = pending.filter(entry => matchesScope(entry, scope)).map(entry => ({ origen_clave: entry.origen_clave, transaccion_id: entry.transaccion_id,
+    cliente_id: entry.cliente_id, cliente_nombre: entry.cliente_nombre, periodo: entry.periodo,
     tipo_asiento: entry.tipo_asiento, rectifica_id: entry.rectifica_id, fecha: entry.fecha, total: entry.lineas.reduce((sum, line) => sum + Number(line.debe), 0) }));
   const published = result.integridad === 'verificada' ? publicJournal(entries, transactions, scope, true) : [];
   const expected = trialBalance(buildJournal(transactions, scope.cliente_id ? { cliente_id: scope.cliente_id } : {}), scope);
@@ -78,3 +81,8 @@ function ledgerConsistency(transactions, entries, scope = {}) {
 }
 
 module.exports = { ledgerConsistency, documentTotals, ledgerTotals };
+
+function matchesScope(entry, scope) {
+  return (!scope.cliente_id || entry.cliente_id === scope.cliente_id) &&
+    (!scope.periodo || entry.periodo === scope.periodo) && (!scope.anio || entry.fecha.startsWith(`${scope.anio}-`));
+}

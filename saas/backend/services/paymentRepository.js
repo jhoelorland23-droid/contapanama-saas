@@ -13,6 +13,7 @@ async function attachPayments(rows, uid, db = { query }) {
 function sqlContext(db, uid) {
   return {
     async get(id, lock = false) {
+      if (lock) db.touchJournal?.(id);
       const result = await db.query(`SELECT * FROM transacciones WHERE id=$1 AND usuario_id=$2${lock ? ' FOR UPDATE' : ''}`, [id, uid]);
       return (await attachPayments(result.rows, uid, db))[0];
     },
@@ -21,12 +22,14 @@ function sqlContext(db, uid) {
     },
     async getAccount(id) { return (await db.query('SELECT * FROM cuentas_bancarias WHERE id=$1 AND usuario_id=$2', [id, uid])).rows[0]; },
     async assignAccount(tx, accountId, motivo, banco) {
+      db.touchJournal?.(tx.id);
       const next = (await db.query('UPDATE transacciones SET cuenta_bancaria_id=$3,banco=$4 WHERE id=$1 AND usuario_id=$2 RETURNING *', [tx.id, uid, accountId, banco])).rows[0];
       await db.query(`INSERT INTO audit_events(usuario_id,cliente_id,accion,objeto_tipo,objeto_id,antes_json,despues_json)
         VALUES($1,$2,'documento_cuenta_asignada','transaccion',$3,$4,$5)`, [uid,tx.cliente_id,tx.id,tx,{ ...next,motivo }]);
       return { ...next, ...paymentSummary(next) };
     },
     async save(tx, pagos, accion, before, extra = null) {
+      db.touchJournal?.(tx.id);
       for (const payment of pagos) {
         await db.query(`INSERT INTO pagos_transacciones
           (id,usuario_id,transaccion_id,importe,fecha,metodo_pago,banco,referencia,idempotencia,conciliado,movimiento_bancario_id,anulado_fecha,anulado_motivo,cuenta_bancaria_id)

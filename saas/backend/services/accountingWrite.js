@@ -3,12 +3,14 @@ const { prepareJournalWrite, syncJournal } = require('./journalRepository');
 
 function withAccountingWrite(uid, action, context = {}) {
   return withTransaction(async db => {
+    const touched = new Set();
+    db.touchJournal = id => touched.add(id);
     // Take this lock before document/bank row locks. It also covers annual and
     // firm-wide closures, which can overlap any of this owner's client periods.
     await db.query('SELECT pg_advisory_xact_lock(1129333070, hashtext($1))', [uid]);
     await prepareJournalWrite(db, uid);
     const result = await action(db);
-    await syncJournal(db, uid, assertAccountingPeriodOpen, context.correction);
+    await syncJournal(db, uid, assertAccountingPeriodOpen, context.correction, [...touched]);
     return result;
   });
 }

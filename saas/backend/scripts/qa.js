@@ -24,9 +24,10 @@ const nodeRun = file => [process.execPath, [file]];
 
 const suites = [
   { id: 'unit-journal', group: 'ledger', cwd: backend, run: nodeTest(['test/journalLedger.test.js', 'test/journalReport.test.js', 'test/ledgerConsistency.test.js']) },
-  { id: 'unit-sync-contract', group: 'ledger', cwd: backend, run: nodeTest(['test/journalSyncContract.test.js']) },
+  { id: 'unit-sync-contract', group: 'ledger', cwd: backend, run: nodeTest(['test/journalSyncContract.test.js', 'test/journalShadow.test.js']) },
   { id: 'unit-corrections', group: 'ledger', cwd: backend, run: nodeTest(['test/documentCorrection.test.js', 'test/entityBooks.test.js']) },
   { id: 'unit-local-store', group: 'unit', cwd: backend, run: nodeTest(['test/localStateStore.test.js']) },
+  { id: 'unit-local-import', group: 'unit', cwd: backend, run: nodeTest(['test/importLocalState.test.js']) },
   { id: 'unit-bank', group: 'unit', cwd: backend, run: nodeTest(['test/bankAccount.test.js', 'test/bankEvidence.test.js', 'test/bankPosting.test.js',
     'test/bankReconciliation.test.js', 'test/bankStatement.test.js', 'test/bankSubledger.test.js']) },
   { id: 'payments', group: 'payments', cwd: backend, run: nodeRun('test/paymentLedger.test.js') },
@@ -46,12 +47,12 @@ const suites = [
     requires: () => (pgBin && ['initdb', 'pg_ctl', 'pg_dump', 'pg_restore'].every(name => fs.existsSync(exe(name)))) ||
       'CONTAPANAMA_PG_BIN no apunta a binarios PostgreSQL (initdb, pg_ctl, pg_dump, pg_restore)' },
   { id: 'frontend-unit', group: 'frontend', cwd: frontend, run: [process.execPath, ['--test', 'test/api.test.mjs', 'test/bankAccounts.test.mjs',
-    'test/bankCsv.test.mjs', 'test/bankStatements.test.mjs', 'test/bankSubledger.test.mjs']],
+    'test/bankCsv.test.mjs', 'test/bankStatements.test.mjs', 'test/bankSubledger.test.mjs', 'test/ledgerConsistency.test.mjs', 'test/readQueue.test.mjs']],
     requires: () => fs.existsSync(path.join(frontend, 'node_modules')) || 'frontend/node_modules ausente (npm ci en frontend)' },
   // vite is invoked directly: spawning npm.cmd needs a shell, which Node warns is unsafe.
   { id: 'frontend-build', group: 'frontend', cwd: frontend, run: [process.execPath, [path.join('node_modules', 'vite', 'bin', 'vite.js'), 'build']],
     requires: () => fs.existsSync(path.join(frontend, 'node_modules')) || 'frontend/node_modules ausente (npm ci en frontend)' },
-  { id: 'frontend-browser', group: 'frontend', cwd: frontend, run: nodeRun('test/journal.browser.cjs'),
+  { id: 'frontend-browser', group: 'frontend', cwd: backend, run: nodeRun('scripts/sqlBrowserQa.js'), timeoutMs: 15 * 60_000,
     requires: () => Boolean(process.env.CONTAPANAMA_PLAYWRIGHT) || 'CONTAPANAMA_PLAYWRIGHT no configurado (pruebas de navegador)' },
 ];
 

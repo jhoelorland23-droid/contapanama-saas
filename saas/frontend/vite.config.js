@@ -5,14 +5,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: '127.0.0.1',
-    port: 5173,
-    hmr: {
-      host: 'localhost',
-      clientPort: 5173,
-    },
+    port: Number(process.env.CONTAPANAMA_WEB_PORT || 5173),
     proxy: {
-      '/api':    { target: 'http://127.0.0.1:4000', changeOrigin: true },
-      '/health': { target: 'http://127.0.0.1:4000', changeOrigin: true },
+      '/api':    { target: process.env.CONTAPANAMA_API_URL || 'http://127.0.0.1:4000', changeOrigin: true },
+      '/health': { target: process.env.CONTAPANAMA_API_URL || 'http://127.0.0.1:4000', changeOrigin: true },
     }
   }
 })

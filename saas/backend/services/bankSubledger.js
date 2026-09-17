@@ -59,6 +59,7 @@ function bankSubledger(snapshot, uid, scope) {
   const totals=fields=>Object.fromEntries(fields.map(field=>[field,data.reduce((sum,row)=>sum+Math.round(row[field]*100),0)/100]));
   const totalsByMonth=periods.map(periodo=>({periodo,...Object.fromEntries(['saldo_acumulado_anterior','debe','haber','saldo_acumulado'].map(field=>
     [field,data.filter(r=>r.periodo===periodo).reduce((sum,r)=>sum+Math.round(r[field]*100),0)/100]))}));
+  data.sort((a,b)=>a.cliente_nombre.localeCompare(b.cliente_nombre)||a.cuenta_nombre.localeCompare(b.cuenta_nombre)||a.key.localeCompare(b.key)||a.periodo.localeCompare(b.periodo));
   return {data:data.filter(r=>!scope.cuenta_bancaria_id||r.cuenta_bancaria_id===scope.cuenta_bancaria_id),
     control_mayor:{alcance:'todas_las_cuentas_del_cliente_o_cartera',...totals(['debe','haber']),meses:totalsByMonth},
     pendientes_sin_cuenta:data.filter(r=>!r.cuenta_bancaria_id).reduce((sum,r)=>sum+r.movimientos.length,0),

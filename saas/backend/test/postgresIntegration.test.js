@@ -16,7 +16,7 @@ const password = randomBytes(24).toString('hex');
 const jwtSecret = randomBytes(32).toString('hex');
 const clients = new Set();
 const report = { started_at: new Date().toISOString(), checks: [] };
-let temp, dataDir, pgPort, apiPort, api, baseUrl;
+let temp, dataDir, pgPort, apiPort, api, baseUrl, web;
 let apiOutput = '';
 const reviewFile = path.join(backend, '.local-data', 'contapanama-state.json');
 const fingerprint = () => fs.existsSync(reviewFile) ? createHash('sha256').update(fs.readFileSync(reviewFile)).digest('hex') : null;
@@ -50,12 +50,18 @@ function environment(database = 'contapanama_qa') {
 
 function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {
+    const { restartApi, ...spawnOptions } = options;
     const child = spawn(command, args, { cwd: backend, env: environment(), windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'], ...options });
+      stdio: ['ignore', 'pipe', 'pipe'], ...spawnOptions });
+    if (restartApi) child.on('message', async message => {
+      if (message?.action !== 'restart-api') return;
+      try { await restartApi(); child.send({ requestId: message.requestId, ok: true }); }
+      catch (e) { child.send({ requestId: message.requestId, error: e.message }); }
+    });
     let output = '', timedOut = false;
     child.stdout.on('data', part => { output += part; });
     child.stderr.on('data', part => { output += part; });
-    const timer = setTimeout(() => { timedOut = true; child.kill(); }, 90000);
+    const timer = setTimeout(() => { timedOut = true; child.kill(); }, restartApi ? 240000 : 90000);
     child.on('error', error => { clearTimeout(timer); reject(error); });
     child.on('exit', code => {
       clearTimeout(timer);
@@ -199,6 +205,8 @@ async function main() {
   const authHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${signup.token}` };
   assert.equal((await request('/api/auth/me', { headers: authHeaders })).id, signup.user.id);
   check('registration and authenticated SQL API');
+  await require('./importLocalState.scenario')({ db, connect, check });
+  await require('./journalShadow.scenario')({ db, check });
   await require('./accountingPeriods.scenario')({ request, requestRaw, authHeaders });
   check('monthly and annual accounting, cross-year payments, closed periods, 4 PDFs');
   const paymentCheck = await require('./paymentLedger.scenario')({ request, requestRaw, authHeaders });
@@ -226,8 +234,18 @@ async function main() {
     },
   });
   if (process.env.CONTAPANAMA_POSTGRES_BROWSER === '1') {
+    const webPort = await freePort();
+    const webUrl = `http://127.0.0.1:${webPort}`;
+    web = spawn(process.execPath, [path.resolve(backend,'../frontend/node_modules/vite/bin/vite.js'),'--host','127.0.0.1','--port',String(webPort),'--strictPort'], {
+      cwd: path.resolve(backend,'../frontend'), env: { ...environment(), CONTAPANAMA_API_URL: baseUrl }, windowsHide: true, stdio: 'ignore',
+    });
+    let ready = false;
+    for (let i=0;i<120;i++) { try { ready=(await fetch(webUrl)).ok; if(ready)break; } catch (_) {} await delay(250); }
+    assert(ready,'Disposable SQL frontend did not start');
     const output = await run(process.execPath, [path.join(backend, '../frontend/test/payments.browser.cjs')], {
-      env: { ...environment(), CONTAPANAMA_DISPOSABLE_PG_TEST: '1', CONTAPANAMA_PG_QA_API: baseUrl },
+      env: { ...environment(), CONTAPANAMA_DISPOSABLE_PG_TEST: '1', CONTAPANAMA_PG_QA_API: baseUrl,
+        CONTAPANAMA_WEB_URL: webUrl, CONTAPANAMA_POSTGRES_QA_OUTPUT: process.env.CONTAPANAMA_POSTGRES_QA_OUTPUT || path.join(temp,'browser') },
+      stdio: ['ignore','pipe','pipe','ipc'], restartApi: async () => { await stopApi(); await startApi(); },
     });
     console.log(output);
     check('browser payment workflow with real PostgreSQL, desktop and mobile');
@@ -267,6 +285,14 @@ async function main() {
   });
   if (Number(process.env.CONTAPANAMA_PG_BENCH) > 0) {
     await require('./journalBench.scenario')({ request, check, documents: Number(process.env.CONTAPANAMA_PG_BENCH) });
+  }
+  if (process.env.CONTAPANAMA_JOURNAL_SYNC === 'shadow') {
+    const summary = (await db.query(`SELECT accion,count(*)::int AS total FROM audit_events
+      WHERE accion IN ('journal_shadow_match','journal_shadow_divergence','journal_shadow_error')
+      AND usuario_id IN (SELECT id FROM usuarios WHERE nombre <> 'QA Shadow') GROUP BY accion ORDER BY accion`)).rows;
+    assert(summary.some(r=>r.accion==='journal_shadow_match'&&r.total>0));
+    assert(!summary.some(r=>r.accion!=='journal_shadow_match'));
+    check('shadow plans match across real SQL scenarios; no unforced divergence or hidden fallback error', { summary });
   }
   const resilienceCheck = await require('./journalResilience.scenario')({ request, requestRaw, authHeaders, db, check,
     restartApi: async extraEnv => { await stopApi(); await startApi('contapanama_qa', 'America/Panama', extraEnv); },
@@ -333,6 +359,7 @@ async function main() {
 }
 
 async function cleanup() {
+  if (web && web.exitCode === null && web.signalCode === null) await new Promise(resolve => { web.once('exit',resolve); web.kill(); });
   await stopApi();
   for (const client of clients) await client.end().catch(() => {});
   if (!temp) return;
