@@ -2,7 +2,17 @@
 
 ## Ruta de trabajo
 
-`work/contapanama-saas-beta1/saas`
+Repositorio git `APP CONTA PANAMA`, carpeta `saas/`, rama `ledger-audit` (desde 2026-09-17). La copia anterior sin git en `work/contapanama-saas-beta1/saas` queda como respaldo.
+
+## Documentos de arquitectura y QA (2026-09-17)
+
+| Documento | Contenido |
+| --- | --- |
+| `AUDITORIA_LEDGER_2026-09-17.md` | Auditoria fase 1 del libro PostgreSQL: hallazgos, correcciones, pruebas. |
+| `docs/ADR-001-motor-contable-unico.md` | Decision: `server.js` + PostgreSQL como unico motor; inventario `server.local.js` vs `server.js`; plan y riesgos de transicion. |
+| `docs/ADR-002-sincronizacion-incremental.md` | Diseño de sincronizacion incremental del libro, benchmark, complejidad, riesgos y pruebas de contrato. |
+| `docs/FUENTE-UNICA-CONTABLE.md` | Clasificacion de cada reporte (libro / documentos / mezcla) y deteccion de divergencias. |
+| `backend/scripts/qa.js` (`npm run qa`) | Suite QA unificada con PASS / FAIL / SKIPPED. Requiere `CONTAPANAMA_PG_BIN` para PostgreSQL y Python+pypdf para PDF. |
 
 ## Estado por carpeta
 
@@ -10,7 +20,7 @@
 | --- | --- | --- | --- |
 | `backend/` | Backend | Activo | API Express, auth, rutas, servicios PDF y conexion PostgreSQL. |
 | `backend/server.js` | Backend | Activo | Registra middleware, health, dashboard y rutas `/api/*`. |
-| `backend/server.local.js` | Backend local | Activo para revision | Servidor sin PostgreSQL para revisar la app en `localhost` cuando Docker/DB no estan disponibles. |
+| `backend/server.local.js` | Backend local | Activo para revision / **en transicion a retiro (ADR-001)** | Motor alterno con estado JSON; no recibe reglas nuevas primero. |
 | `backend/routes/auth.js` | Backend | Activo | Registro, login, usuario actual y cambio de password. |
 | `backend/routes/clientes.js` | Backend | Activo | CRUD clientes con filtro por usuario. |
 | `backend/routes/transacciones.js` | Backend | Activo | Diario contable operativo, resumen, evolucion y CRUD de transacciones. |

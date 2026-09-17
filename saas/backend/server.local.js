@@ -36,6 +36,7 @@ const { journalReport, validateJournalScope } = require('./services/journalRepor
 const { generarLibroDiario } = require('./services/journalPdf');
 const { changesFrom, documentRevision, authorizeCorrection, correctionAudit, isCorrectionReplay } = require('./services/documentCorrection');
 const { validIdempotencyKey, sameDocument } = require('./services/documentIdempotency');
+const { ledgerConsistency } = require('./services/ledgerConsistency');
 
 const app = express();
 const asyncRoute = action => (req, res, next) => Promise.resolve().then(() => action(req, res)).catch(next);
@@ -774,7 +775,17 @@ app.get('/api/contabilidad/plan-cuentas', auth, (_req, res) => {
   res.json({ data: CHART_OF_ACCOUNTS, total: CHART_OF_ACCOUNTS.length });
 });
 
-app.get('/api/contabilidad/libro', auth, (req, res) => res.json(localJournal.preview(state, req.user.id)));
+const localConsistency = (uid, scope = {}) => localJournal.status(state, uid)
+  ? ledgerConsistency(localJournal.sources(state, uid), localJournal.entityEntries(state, uid), scope)
+  : { estado: 'pendiente_incorporacion', pendientes: [], cuentas_divergentes: [], errores: [] };
+app.get('/api/contabilidad/libro', auth, (req, res) => {
+  const book = localJournal.preview(state, req.user.id);
+  if (book.estado !== 'incorporado') return res.json(book);
+  const consistencia = localConsistency(req.user.id);
+  res.json({ ...book, consistencia: { estado: consistencia.estado, pendientes: consistencia.pendientes.length,
+    cuentas_divergentes: consistencia.cuentas_divergentes.length, errores: consistencia.errores } });
+});
+app.get('/api/contabilidad/consistencia', auth, validatePeriodQuery, (req, res) => res.json(localConsistency(req.user.id, req.query)));
 app.get('/api/contabilidad/libros-entidad', auth, (req, res) => res.json(localJournal.entityPreview(state, req.user.id)));
 app.post('/api/contabilidad/libros-entidad/incorporar', auth, (req, res) => {
   if (!['admin', 'contador'].includes(req.user.rol)) return res.status(403).json({ error: 'La asignacion requiere revision de un contador.' });

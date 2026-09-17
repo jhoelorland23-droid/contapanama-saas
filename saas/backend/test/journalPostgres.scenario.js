@@ -34,16 +34,30 @@ module.exports = async function journalScenario({ request, requestRaw, authHeade
   assert.deepEqual((await read(journalUrl)).data, corrected);
   check('SQL journal persists numbers, preserves originals, appends exact corrections and feeds annual balances');
 
+  assert.equal((await read('/api/contabilidad/libro')).consistencia.estado, 'consistente');
+  assert.equal((await read(`/api/contabilidad/consistencia?${scope}`)).estado, 'consistente');
   // A read must use stored entries, not silently rebuild from changed source fields.
   await db.query('UPDATE transacciones SET monto=300 WHERE id=$1', [invoice.id]);
   try {
     assert.deepEqual((await read(journalUrl)).data, corrected);
+    // documentos (300) != libro (200) != dashboard (300): the drift must be visible, not silent.
+    const drift = await read(`/api/contabilidad/consistencia?${scope}`);
+    assert.equal(drift.estado, 'divergente');
+    assert.deepEqual(drift.pendientes.map(p => p.tipo_asiento), ['reversa_ajuste', 'documento']);
+    assert.deepEqual(drift.cuentas_divergentes.map(row => [row.cuenta_codigo, row.diferencia]), [['1030', -100], ['4010', 100]]);
+    assert.equal(drift.totales.documentos.ingresos, 300);
+    assert.equal(drift.totales.libro.ingresos, 200);
+    assert.equal(drift.totales.reportes_vs_libro.ingresos, 100);
+    assert.equal(Number((await read('/api/dashboard?periodo=2050-01')).financiero.ingresos), 300, 'dashboard still reads documents');
+    assert.equal((await read(`/api/contabilidad/balance-comprobacion?${scope}`)).cuentas.find(c => c.cuenta_codigo === '1030').saldo, 200, 'balance reads the book');
+    assert.equal((await read('/api/contabilidad/libro')).consistencia.estado, 'divergente');
     await assert.rejects(send('POST', '/api/transacciones', { ...payload, descripcion: 'QA no incorporar alteracion externa' }), /409.*sin una correccion/);
     assert.equal((await db.query('SELECT count(*) FROM transacciones WHERE descripcion=$1', ['QA no incorporar alteracion externa'])).rows[0].count, '0');
     assert.deepEqual((await read(journalUrl)).data, corrected);
   }
   finally { await db.query('UPDATE transacciones SET monto=200 WHERE id=$1', [invoice.id]); }
-  check('unreviewed source alterations cannot be silently published by an unrelated SQL write');
+  assert.equal((await read(`/api/contabilidad/consistencia?${scope}`)).estado, 'consistente');
+  check('unreviewed source alterations cannot be silently published by an unrelated SQL write and are reported as documentos != libro != dashboard');
 
   const eid = original[0].id;
   for (const statement of [

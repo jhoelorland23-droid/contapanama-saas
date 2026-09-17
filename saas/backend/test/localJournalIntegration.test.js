@@ -154,10 +154,18 @@ async function main() {
     descripcion: 'QA no incorporar alteracion externa', monto: 10, itbms: 0, estado_pago: 'pendiente' }), /409.*sin una correccion/);
   assert.equal(digest(stateFile), beforeDriftWrite);
   assert.deepEqual(await request(journalUrl), afterPayment);
+  const drift = await request(`/api/contabilidad/consistencia?anio=2038&cliente_id=${client.id}`);
+  assert.equal(drift.estado, 'divergente');
+  assert.deepEqual(drift.pendientes.map(p => p.tipo_asiento), ['reversa_ajuste', 'documento']);
+  assert.equal(drift.totales.documentos.ingresos, 300);
+  assert.equal(drift.totales.libro.ingresos, 200);
+  assert.equal((await request('/api/contabilidad/libro')).consistencia.estado, 'divergente');
   await stop();
   fs.writeFileSync(stateFile, goodState);
   await start();
-  check('unreviewed local source changes cannot be silently published by an unrelated write');
+  assert.equal((await request(`/api/contabilidad/consistencia?anio=2038&cliente_id=${client.id}`)).estado, 'consistente');
+  assert.equal((await request('/api/contabilidad/libro')).consistencia.estado, 'consistente');
+  check('unreviewed local source changes cannot be silently published by an unrelated write and are reported as documentos != libro');
 
   const other = await request('/api/auth/register', { nombre: 'QA otro usuario', email: 'qa-other-local@example.com', password: process.env.CONTAPANAMA_QA_PASSWORD });
   const ownerToken = token;

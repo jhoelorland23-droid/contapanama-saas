@@ -150,4 +150,4 @@ function syncWrite(state, before, closureFor, correction) {
     owned(state.dimensiones_bancarias||[],uid),owned(state.cuentas_bancarias||[],uid));
 }
 
-module.exports = { status, preview, incorporate, read, syncWrite, entityEntries, entityPreview, incorporateEntities };
+module.exports = { status, sources, preview, incorporate, read, syncWrite, entityEntries, entityPreview, incorporateEntities };

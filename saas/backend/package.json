@@ -27,7 +27,11 @@
     "test:entity-books": "node --test test/entityBooks.test.js",
     "test:local-store": "node --test test/localStateStore.test.js",
     "test:journal-local": "node test/localJournalIntegration.test.js",
-    "test:journal-pdf-layout": "node test/journalPdfLayout.test.js"
+    "test:journal-pdf-layout": "node test/journalPdfLayout.test.js",
+    "test:ledger-consistency": "node --test test/ledgerConsistency.test.js",
+    "test:sync-contract": "node --test test/journalSyncContract.test.js",
+    "bench:plan": "node test/journalPlan.bench.js",
+    "qa": "node scripts/qa.js"
   },
   "dependencies": {
     "bcryptjs":           "^2.4.3",

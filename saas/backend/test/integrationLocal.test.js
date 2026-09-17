@@ -1,5 +1,6 @@
 const assert = require('assert');
 const { spawn } = require('child_process');
+const { randomUUID } = require('node:crypto');
 const fs = require('fs');
 const net = require('net');
 const os = require('os');
@@ -274,13 +275,57 @@ async function run() {
   assert.strictEqual(Number(portfolio.total_gastos), 8850);
   assert.ok(portfolio.data.some(row => row.cliente_nombre === 'Constructora Istmo S.A.' && Number(row.cuentas_por_pagar) === 8025));
 
+  // Since the bank-evidence closing rule (2026-09-14), a historical "conciliado" flag without a
+  // unique matching bank movement is an invalid link: the seed's eight flags must block the close.
+  const closeBody = JSON.stringify({ estado: 'cerrado', nota: 'Saldos por pagar revisados al cierre' });
+  const blockedClose = await fetch(`${BASE_URL}/api/contabilidad/cierre-estado?anio=2025`, { method: 'PUT', headers: authHeaders, body: closeBody });
+  assert.strictEqual(blockedClose.status, 409);
+  const blockedIssues = (await blockedClose.json()).issues;
+  assert.ok(blockedIssues.some(issue => issue.codigo === 'VINCULOS_BANCARIOS_INVALIDOS' && issue.severidad === 'critica' && /8 vinculo/.test(issue.detalle)));
+  assert.ok(blockedIssues.some(issue => issue.codigo === 'BANCOS_SIN_CONCILIAR' && /8 pago/.test(issue.detalle)));
+  assert.strictEqual((await request('/api/contabilidad/cierre-estado?anio=2025', { headers: authHeaders })).data, null);
+
+  // Regularize each legacy flag the way a CPA would: undo the unsupported mark, assign the exact
+  // account, register the bank movement and link it. Only then may the year close.
+  const legacyFlags = (await request('/api/transacciones?anio=2025', { headers: authHeaders })).data.filter(tx => tx.conciliado);
+  assert.strictEqual(legacyFlags.length, 8);
+  const evidenceAccounts = new Map();
+  const ensureAccount = async (clienteId, banco) => {
+    const accountKey = `${clienteId}:${banco}`;
+    if (!evidenceAccounts.has(accountKey)) {
+      evidenceAccounts.set(accountKey, await request('/api/cuentas-bancarias', { method: 'POST', headers: authHeaders, body: JSON.stringify({
+        cliente_id: clienteId, nombre: `Cuenta ${banco}`, banco, numero: randomUUID().replaceAll('-', '').slice(0, 20),
+        tipo: 'corriente', moneda: 'USD', idempotencia: randomUUID() }) }));
+    }
+    return evidenceAccounts.get(accountKey);
+  };
+  // Bank movements require the exact client account and an idempotency key.
+  const bankMovement = (tx, account, body) => request('/api/movimientos-bancarios', { method: 'POST', headers: authHeaders, body: JSON.stringify({
+    cliente_id: tx.cliente_id, cuenta_bancaria_id: account.id, banco: account.banco, tipo: tx.tipo === 'ingreso' ? 'credito' : 'debito',
+    monto: Number((Number(tx.monto) + Number(tx.itbms)).toFixed(2)), idempotencia: randomUUID(), ...body }) });
+  const linkBankEvidence = async (tx, banco, body) => {
+    const account = await ensureAccount(tx.cliente_id, banco);
+    await request(`/api/transacciones/${tx.id}/cuenta`, { method: 'POST', headers: authHeaders,
+      body: JSON.stringify({ cuenta_bancaria_id: account.id, motivo: 'Evidencia bancaria del historial revisada por CPA' }) });
+    const movement = await bankMovement(tx, account, body);
+    return request('/api/conciliacion/match', { method: 'POST', headers: authHeaders, body: JSON.stringify({ transaccion_id: tx.id, movimiento_id: movement.id }) });
+  };
+  for (const tx of legacyFlags) {
+    await request(`/api/transacciones/${tx.id}`, { method: 'PUT', headers: authHeaders, body: JSON.stringify({ conciliado: false }) });
+    await linkBankEvidence(tx, tx.banco, { fecha: tx.fecha_pago, referencia: tx.referencia_pago, descripcion: `Soporte bancario ${tx.referencia_pago}` });
+  }
+  const regularized = (await request('/api/transacciones?anio=2025', { headers: authHeaders })).data.filter(tx => tx.conciliado);
+  assert.strictEqual(regularized.length, 8, 'every legacy flag is now backed by a linked bank movement');
+  console.log('Seed legacy reconciliation flags block the 2025 close until each one has bank evidence');
+
   const accruedClose = await request('/api/contabilidad/cierre-estado?anio=2025', {
       method: 'PUT',
       headers: authHeaders,
-      body: JSON.stringify({ estado: 'cerrado', nota: 'Saldos por pagar revisados al cierre' }),
+      body: closeBody,
   });
   assert.strictEqual(accruedClose.data.estado, 'cerrado');
   assert.strictEqual(accruedClose.review.cuentas_por_pagar, 8025);
+  assert.strictEqual(accruedClose.review.control_bancario.vinculos_invalidos, 0);
 
   const reviewStatus = await request('/api/contabilidad/cierre-estado?anio=2025', {
     method: 'PUT',
@@ -353,27 +398,10 @@ async function run() {
     /409/
   );
 
-  const closedPeriodMovement = await request('/api/movimientos-bancarios', {
-    method: 'POST',
-    headers: authHeaders,
-    body: JSON.stringify({
-      fecha: '2026-10-01',
-      descripcion: 'Deposito para conciliacion bloqueada',
-      monto: 107,
-      tipo: 'credito',
-      banco: 'Banco General',
-      referencia: 'DEP-CIERRE-001',
-    }),
-  });
+  // A closed client period refuses new bank activity before any link can be attempted.
   await assert.rejects(
-    request('/api/conciliacion/match', {
-      method: 'POST',
-      headers: authHeaders,
-      body: JSON.stringify({
-        transaccion_id: closePeriodTx.id,
-        movimiento_id: closedPeriodMovement.id,
-      }),
-    }),
+    bankMovement(closePeriodTx, await ensureAccount(constructora.cliente_id, 'Banco General'),
+      { fecha: '2026-10-01', descripcion: 'Deposito para conciliacion bloqueada', referencia: 'DEP-CIERRE-001' }),
     /409/
   );
 
@@ -405,18 +433,8 @@ async function run() {
   assert.strictEqual(closedGlobalPeriod.data.estado, 'cerrado');
 
   await assert.rejects(
-    request('/api/movimientos-bancarios', {
-      method: 'POST',
-      headers: authHeaders,
-      body: JSON.stringify({
-        fecha: '2026-11-02',
-        descripcion: 'Movimiento bancario no permitido despues de cierre global',
-        monto: 128.4,
-        tipo: 'credito',
-        banco: 'Banco General',
-        referencia: 'DEP-CIERRE-002',
-      }),
-    }),
+    bankMovement(globalCloseTx, await ensureAccount(constructora.cliente_id, 'Banco General'),
+      { fecha: '2026-11-02', descripcion: 'Movimiento bancario no permitido despues de cierre global', referencia: 'DEP-CIERRE-002' }),
     /409/
   );
 
@@ -450,10 +468,12 @@ async function run() {
 
   const annualBankReconciliation = await request('/api/fiscal/conciliacion?anio=2025', { headers: authHeaders });
   assert.strictEqual(annualBankReconciliation.alcance, 'anual');
-  const bancoGeneralAnnual = annualBankReconciliation.resumen.find(row => row.banco === 'Banco General');
-  assert.ok(bancoGeneralAnnual);
+  // Since reconciliation by client, the summary has one row per client, bank and account.
+  const bancoGeneralAnnual = annualBankReconciliation.resumen.filter(row => row.banco === 'Banco General');
+  assert.strictEqual(bancoGeneralAnnual.length, 2);
   // The unpaid 8,025 document is a payable, not a bank outflow.
-  assert.strictEqual(Number(bancoGeneralAnnual.saldo_contable), 5082.5);
+  assert.strictEqual(Number(bancoGeneralAnnual.reduce((sum, row) => sum + Number(row.saldo_contable), 0).toFixed(2)), 5082.5);
+  assert.strictEqual(Number(bancoGeneralAnnual.find(row => row.cliente_id === constructora.cliente_id).saldo_contable), 5992);
 
   const annualBankReconciliationPdf = await requestRaw('/api/reportes/conciliacion?anio=2025', { headers: authHeaders });
   assert.strictEqual(annualBankReconciliationPdf.headers.get('content-type'), 'application/pdf');
@@ -705,28 +725,8 @@ async function run() {
   assert.ok(finalAudit.total >= 4);
   assert.ok(finalAudit.data.some(event => event.accion === 'borrador_ia_confirmado'));
 
-  const movimiento = await request('/api/movimientos-bancarios', {
-    method: 'POST',
-    headers: authHeaders,
-    body: JSON.stringify({
-      fecha: '2026-08-27',
-      descripcion: 'Deposito prueba integracion local',
-      monto: 160.5,
-      tipo: 'credito',
-      banco: 'Banco General',
-      referencia: 'DEP-IA-001',
-    }),
-  });
-  assert.strictEqual(movimiento.conciliado, false);
-
-  const conciliado = await request('/api/conciliacion/match', {
-    method: 'POST',
-    headers: authHeaders,
-    body: JSON.stringify({
-      transaccion_id: converted.data[0].id,
-      movimiento_id: movimiento.id,
-    }),
-  });
+  const conciliado = await linkBankEvidence(await request(`/api/transacciones/${converted.data[0].id}`, { headers: authHeaders }), 'Banco General',
+    { fecha: '2026-08-27', descripcion: 'Deposito prueba integracion local', referencia: 'DEP-IA-001' });
   assert.strictEqual(conciliado.transaccion.conciliado, true);
   assert.strictEqual(conciliado.movimiento.conciliado, true);
   assert.strictEqual(conciliado.movimiento.transaccion_id, converted.data[0].id);

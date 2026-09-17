@@ -5,7 +5,7 @@ const cors        = require('cors');
 const helmet      = require('helmet');
 const morgan      = require('morgan');
 const compression = require('compression');
-const { query, testConnection } = require('./db');
+const { query, testConnection, closePool } = require('./db');
 const { assertProductionEnv } = require('./config/validateEnv');
 
 const authRoutes         = require('./routes/auth');
@@ -40,6 +40,23 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+
+// In production an internal failure is logged with a reference and answered generically;
+// the raw driver/database message never reaches the client.
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    const json = res.json.bind(res);
+    res.json = body => {
+      if (res.statusCode >= 500 && body && typeof body === 'object' && typeof body.error === 'string') {
+        const referencia = require('node:crypto').randomUUID();
+        console.error(`[server error ${referencia}] ${req.method} ${req.originalUrl}: ${body.error}`);
+        return json({ error: 'Error interno del servidor.', referencia });
+      }
+      return json(body);
+    };
+    next();
+  });
+}
 
 // ─── HEALTH CHECK ─────────────────────────────────────────────────────────────
 app.get('/health', async (req, res) => {
@@ -132,11 +149,27 @@ app.use((err, req, res, _next) => {
 });
 
 // ─── START ────────────────────────────────────────────────────────────────────
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log(`\n🚀 ContaPanamá API v2.0`);
   console.log(`   http://localhost:${PORT}`);
   console.log(`   DB: ${process.env.DATABASE_URL ? '✓ configurada' : '✗ DATABASE_URL faltante'}`);
   console.log(`   Entorno: ${process.env.NODE_ENV || 'development'}\n`);
 });
+
+// ─── CIERRE ORDENADO ──────────────────────────────────────────────────────────
+// Stop accepting requests, let in-flight transactions commit or roll back, then close the pool.
+let shuttingDown = false;
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[server] ${signal}: cerrando de forma ordenada`);
+  const deadline = setTimeout(() => { console.error('[server] cierre forzado por tiempo de espera'); process.exit(1); }, 15_000);
+  deadline.unref();
+  server.close(async () => {
+    try { await closePool(); process.exit(0); }
+    catch (error) { console.error('[server] error al cerrar el pool:', error.message); process.exit(1); }
+  });
+}
+for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => shutdown(signal));
 
 module.exports = app;

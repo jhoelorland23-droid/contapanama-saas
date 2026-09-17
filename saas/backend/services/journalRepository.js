@@ -5,6 +5,7 @@ const { verifyEntry, journalPlan, incorporationPreview, publicJournal, hash } = 
 const { fail } = require('./paymentLedger');
 const { registryPreview, planRegistry, attachFolios } = require('./entityBooks');
 const { planBankDimensions, verifyBankDimensions } = require('./bankPosting');
+const { ledgerConsistency } = require('./ledgerConsistency');
 
 async function sourceTransactions(db, uid) {
   const { rows } = await db.query('SELECT * FROM transacciones WHERE usuario_id=$1 ORDER BY fecha, created_at, id', [uid]);
@@ -186,6 +187,12 @@ async function incorporateBook(db, uid, fingerprint) {
   return previewBook(uid, db);
 }
 
+// Read-only: reports where documentos, libro and report-style totals disagree.
+async function readConsistency(uid, scope = {}, db = { query }) {
+  if (!await bookStatus(db, uid)) return { estado: 'pendiente_incorporacion', pendientes: [], cuentas_divergentes: [], errores: [] };
+  return ledgerConsistency(await sourceTransactions(db, uid), await storedEntries(db, uid), scope);
+}
+
 async function readJournal(uid, transactions, scope = {}, history = false, db = { query }) {
   if (!await bookStatus(db, uid)) {
     return buildJournal(transactions, history ? {} : scope).map(e => ({ ...e, persistido: false }));
@@ -193,5 +200,5 @@ async function readJournal(uid, transactions, scope = {}, history = false, db = 
   return publicJournal(await storedEntries(db, uid), transactions, scope, history);
 }
 
-module.exports = { prepareJournalWrite, syncJournal, readJournal, previewBook, incorporateBook,
+module.exports = { prepareJournalWrite, syncJournal, readJournal, readConsistency, previewBook, incorporateBook,
   sourceTransactions, storedEntries, bookStatus, previewEntityBooks, incorporateEntityBooks, entityState, journalSnapshot };

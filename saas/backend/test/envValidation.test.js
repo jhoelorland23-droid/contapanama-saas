@@ -41,3 +41,17 @@ assert.strictEqual(valid.ok, true);
 assert.deepStrictEqual(valid.errors, []);
 
 console.log('Environment validation tests passed');
+
+// TLS towards PostgreSQL: verification is the production default, never silently disabled.
+const { sslConfig } = require('../db');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+assert.strictEqual(sslConfig({ NODE_ENV: 'development' }), false);
+assert.deepStrictEqual(sslConfig({ NODE_ENV: 'production' }), { rejectUnauthorized: true });
+assert.deepStrictEqual(sslConfig({ NODE_ENV: 'production', CONTAPANAMA_PG_SSL_INSECURE: 'true' }), { rejectUnauthorized: false });
+const caFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'contapanama-ca-')), 'ca.pem');
+fs.writeFileSync(caFile, '-----BEGIN CERTIFICATE-----\nQA\n-----END CERTIFICATE-----\n');
+assert.deepStrictEqual(sslConfig({ NODE_ENV: 'production', CONTAPANAMA_PG_SSL_CA: caFile }), { rejectUnauthorized: true, ca: fs.readFileSync(caFile, 'utf8') });
+fs.rmSync(path.dirname(caFile), { recursive: true, force: true });
+console.log('PostgreSQL TLS configuration tests passed');

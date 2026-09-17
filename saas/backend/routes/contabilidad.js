@@ -4,7 +4,7 @@ const { query } = require('../db');
 const { withAccountingWrite } = require('../services/accountingWrite');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const { historyParams, validatePeriodQuery, inRange, periodRange, formalClosingScope } = require('../services/accountingPeriod');
-const { readJournal, previewBook, incorporateBook, bookStatus, previewEntityBooks, incorporateEntityBooks } = require('../services/journalRepository');
+const { readJournal, readConsistency, previewBook, incorporateBook, bookStatus, previewEntityBooks, incorporateEntityBooks } = require('../services/journalRepository');
 const { attachPayments } = require('../services/paymentRepository');
 const { readBankEvidence } = require('../services/bankEvidence');
 const {
@@ -174,7 +174,18 @@ router.get('/plan-cuentas', (_req, res) => {
 });
 
 router.get('/libro', async (req, res) => {
-  try { res.json(await previewBook(req.user.id)); }
+  try {
+    const book = await previewBook(req.user.id);
+    // Surface drift between documents and the published book wherever the book status is shown.
+    const consistencia = book.estado === 'incorporado' ? await readConsistency(req.user.id) : null;
+    res.json(consistencia ? { ...book, consistencia: { estado: consistencia.estado, pendientes: consistencia.pendientes.length,
+      cuentas_divergentes: consistencia.cuentas_divergentes.length, errores: consistencia.errores } } : book);
+  }
+  catch (error) { res.status(error.status || 500).json({ error: error.message }); }
+});
+
+router.get('/consistencia', periodValidators, validate, async (req, res) => {
+  try { res.json(await readConsistency(req.user.id, req.query)); }
   catch (error) { res.status(error.status || 500).json({ error: error.message }); }
 });
 
