@@ -1,0 +1,27 @@
+services:
+  contapanama-backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - ./production-env/contapanama-backend.production.env
+    ports:
+      - "4000:4000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  contapanama-frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      contapanama-backend:
+        condition: service_healthy

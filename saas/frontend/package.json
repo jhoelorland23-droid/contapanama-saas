@@ -1,0 +1,19 @@
+{
+  "name": "contapanama-frontend",
+  "version": "2.0.0",
+  "scripts": {
+    "test:auth": "node --test test/api.test.mjs",
+    "dev": "vite --port 5173",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "papaparse": "5.5.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.0"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "name": "contapanama-backend",
+  "version": "2.0.0",
+  "description": "ContaPanamá SaaS — API REST completa",
+  "main": "server.js",
+  "scripts": {
+    "start":       "node server.js",
+    "start:local": "node server.local.js",
+    "dev":         "nodemon server.js",
+    "dev:local":   "nodemon server.local.js",
+    "db:migrate":  "node db/migrate.js --apply",
+    "db:check":    "node db/migrate.js",
+    "db:seed":     "node db/seed.js",
+    "admin:ensure": "node db/admin.js",
+    "test:health": "curl http://localhost:4000/health",
+    "test:fiscal": "node test/fiscalEngine.test.js",
+    "test:integration-local": "node test/integrationLocal.test.js",
+    "test:integration-postgres": "node test/postgresIntegration.test.js",
+    "test:env": "node test/envValidation.test.js",
+    "test:auth-security": "node test/authSecurity.test.js",
+    "test:schema-contract": "node test/schemaContract.test.js",
+    "test:accounting": "node test/accountingEngine.test.js && node test/accountingPeriods.test.js",
+    "test:accounting-pdf": "node test/accountingPdf.test.js",
+    "test:payments": "node test/paymentLedger.test.js",
+    "test:journal": "node --test test/journalLedger.test.js test/journalReport.test.js",
+    "test:corrections": "node --test test/documentCorrection.test.js",
+    "test:entity-books": "node --test test/entityBooks.test.js",
+    "test:local-store": "node --test test/localStateStore.test.js",
+    "test:journal-local": "node test/localJournalIntegration.test.js",
+    "test:journal-pdf-layout": "node test/journalPdfLayout.test.js"
+  },
+  "dependencies": {
+    "bcryptjs":           "^2.4.3",
+    "compression":        "^1.7.4",
+    "cors":               "^2.8.5",
+    "dotenv":             "^16.4.5",
+    "express":            "^4.19.2",
+    "express-validator":  "^7.1.0",
+    "helmet":             "^7.1.0",
+    "jsonwebtoken":       "^9.0.2",
+    "morgan":             "^1.10.0",
+    "pg":                 "^8.12.0",
+    "pdfkit":             "^0.15.0",
+    "uuid":               "^10.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}

@@ -1,0 +1,102 @@
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const fs = require('node:fs');
+const { chromium } = require(process.env.CONTAPANAMA_PLAYWRIGHT || 'playwright');
+const engine = require('../../backend/services/accountingEngine');
+const { paymentSummary, preparePayment } = require('../../backend/services/paymentLedger');
+const { randomUUID } = require('node:crypto');
+
+async function run() {
+  const browser = await chromium.launch({ headless: true, channel: process.env.CONTAPANAMA_BROWSER_CHANNEL || undefined });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const out = path.resolve(__dirname, '../../outputs/period-accounting-qa');
+  fs.mkdirSync(out, { recursive: true });
+  const invoice = { id: 'qa-period-ui', fecha: '2025-12-20', periodo: '2025-12', tipo: 'ingreso', descripcion: 'QA honorarios diciembre', monto: 1000, itbms: 70, estado_pago: 'pendiente', banco: '', cliente_nombre: 'Cliente prueba periodos', categoria_contable: 'honorarios' };
+  const documents = [invoice];
+  let payments = 0;
+  let rejectPayment = true;
+  try {
+    await page.route('**/api/**', async route => {
+      const request = route.request();
+      const url = new URL(request.url());
+      const scope = Object.fromEntries(url.searchParams);
+      const routePath = url.pathname;
+      const send = json => route.fulfill({ json });
+      if (routePath === `/api/transacciones/${invoice.id}/pagos` && request.method() === 'GET') return send(paymentSummary(invoice));
+      if (routePath === `/api/transacciones/${invoice.id}/pagos` && request.method() === 'POST') {
+        const body = request.postDataJSON();
+        assert.equal(body.fecha, '2026-01-08');
+        assert.equal(body.banco, 'BAC');
+        assert.equal(body.metodo_pago, 'transferencia');
+        assert.equal(body.referencia, 'QA-COBRO-8');
+        assert.equal(Number(body.importe), 1070);
+        if (rejectPayment) return route.fulfill({ status: 409, json: { error: 'El periodo del pago esta cerrado.' } });
+        invoice.pagos = [preparePayment(invoice, body, randomUUID())];
+        Object.assign(invoice, paymentSummary(invoice));
+        payments++;
+        return send(invoice);
+      }
+      if (routePath === '/api/transacciones') return send({ data: documents, total: documents.length });
+      if (routePath === '/api/transacciones/resumen') return send({ total_ingresos: 1000, total_gastos: 0, utilidad_neta: 1000 });
+      if (routePath === '/api/contabilidad/cierre-estado') return send({ data: { estado: 'cerrado' } });
+      if (routePath === '/api/contabilidad/cierre') return send(engine.closingReview(documents, engine.buildJournal(documents), scope));
+      if (routePath === '/api/contabilidad/antiguedad') return send(engine.agingReport(documents, scope));
+      if (routePath === '/api/contabilidad/balance-comprobacion') return send({ ...engine.trialBalance(engine.buildJournal(documents), scope), total_asientos: engine.buildJournal(documents, scope).length });
+      if (routePath === '/api/contabilidad/asientos') return send({ data: engine.buildJournal(documents, scope) });
+      if (routePath === '/api/contabilidad/mayor-general') return send(engine.generalLedger(engine.buildJournal(documents), scope));
+      if (routePath.startsWith('/api/contabilidad/mayor/')) return send(engine.accountLedger(engine.buildJournal(documents), routePath.split('/').at(-1), scope));
+      if (routePath === '/api/contabilidad/resumen-mensual') return send(engine.monthlyAccountingSummary(documents, scope));
+      return route.continue();
+    });
+    await page.goto(process.env.CONTAPANAMA_WEB_URL || 'http://localhost:5173');
+    await page.getByRole('button', { name: 'Usar demo', exact: true }).click();
+    await page.getByRole('button', { name: 'Diario Contable', exact: true }).click();
+    const row = page.getByRole('row').filter({ hasText: 'QA honorarios diciembre' });
+    await row.waitFor();
+    assert.equal(await page.getByRole('button', { name: 'Nuevo ingreso', exact: true }).isDisabled(), true);
+    const collect = row.getByRole('button', { name: 'Cobrar', exact: true });
+    assert.equal(await collect.isEnabled(), true);
+    await collect.click();
+    assert.equal(await page.getByLabel('Fecha del cobro').inputValue(), '');
+    assert.equal(await page.getByLabel('Banco', { exact: true }).inputValue(), '');
+    await page.getByLabel('Fecha del cobro').fill('2026-01-08');
+    await page.getByLabel('Banco', { exact: true }).selectOption('BAC');
+    await page.getByLabel('Referencia del pago').fill('QA-COBRO-8');
+    await page.getByRole('button', { name: 'Registrar cobro', exact: true }).click();
+    await page.getByRole('alert').filter({ hasText: 'El periodo del pago esta cerrado.' }).waitFor();
+    assert.equal(payments, 0);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: path.join(out, 'cobro-mobile.png') });
+    const formBounds = await page.locator('form').boundingBox();
+    assert(formBounds.x >= 0 && formBounds.x + formBounds.width <= 390);
+    rejectPayment = false;
+    await page.getByRole('button', { name: 'Registrar cobro', exact: true }).click();
+    await page.getByLabel('Fecha del cobro').waitFor({ state: 'hidden' });
+    assert.equal(payments, 1);
+    assert.equal(invoice.fecha, '2025-12-20');
+    await page.getByRole('dialog').getByRole('button', { name: 'Cerrar', exact: true }).click();
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.getByRole('button', { name: 'Contabilidad', exact: true }).click();
+    await page.locator('main input[type="month"]').fill('2026-01');
+    await page.getByText('Diario en partida doble', { exact: true }).waitFor();
+    await page.getByRole('row').filter({ hasText: 'Cobro: QA honorarios diciembre' }).first().waitFor();
+    await page.getByRole('columnheader', { name: 'Saldo inicial', exact: true }).waitFor();
+    const downloadEvent = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'CSV mayor', exact: true }).click();
+    const download = await downloadEvent;
+    const stream = await download.createReadStream();
+    const chunks = [];
+    for await (const chunk of stream) chunks.push(chunk);
+    const csv = Buffer.concat(chunks).toString('utf8');
+    assert(csv.includes('saldo_acumulado') && csv.includes('Saldo inicial') && csv.includes('1070'));
+    await page.getByText('Balance de comprobaci\u00f3n', { exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(out, 'balance-desktop.png') });
+    assert.deepEqual(errors, []);
+    console.log('Period UI passed: closed document, explicit date/bank, payment error and retry, mobile form, historical balance and running-balance CSV');
+  } finally {
+    await browser.close();
+  }
+}
+run().catch(error => { console.error(error); process.exitCode = 1; });

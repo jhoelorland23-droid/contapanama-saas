@@ -29,3 +29,9 @@ build/
 *.jpeg
 *.mp4
 *.log
+
+# Datos reales de la app de revision local (nunca versionar)
+.local-data/
+
+# Exportaciones generadas por las pruebas (se regeneran; no son evidencia)
+saas/outputs/**/*.csv
