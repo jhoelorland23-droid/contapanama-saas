@@ -7,7 +7,8 @@ const net = require('net');
 const os = require('os');
 const path = require('path');
 
-const INTEGRATION_TOKEN = process.env.CONTAPANAMA_INTEGRATION_TOKEN /* historical credential redacted */;
+const INTEGRATION_TOKEN = require('node:crypto').randomBytes(32).toString('hex');
+const JWT_SECRET = require('node:crypto').randomBytes(32).toString('hex');
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'contapanama-integration-'));
 
 const serverPath = path.join(__dirname, '..', 'server.local.js');
@@ -34,7 +35,7 @@ function startServer(port) {
       PORT: port,
       HOST: '127.0.0.1',
       CONTAPANAMA_INTEGRATION_TOKEN: INTEGRATION_TOKEN,
-      JWT_SECRET: require('node:crypto').randomBytes(32).toString('hex'),
+      JWT_SECRET,
       CONTAPANAMA_LOCAL_DATA_DIR: TEST_DATA_DIR,
     },
     stdio: ['ignore', 'pipe', 'pipe'],

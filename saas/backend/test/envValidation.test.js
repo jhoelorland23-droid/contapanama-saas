@@ -6,7 +6,7 @@ const validEnv = {
   DATABASE_URL: 'postgresql://conta:secret@db.example.com:5432/contapanama?sslmode=require',
   JWT_SECRET: require('node:crypto').randomBytes(32).toString('hex'),
   FRONTEND_URL: 'https://contapanama.example.com',
-  CONTAPANAMA_INTEGRATION_TOKEN: process.env.CONTAPANAMA_INTEGRATION_TOKEN /* historical credential redacted */,
+  CONTAPANAMA_INTEGRATION_TOKEN: require('node:crypto').randomBytes(32).toString('hex'),
 };
 
 assert.deepStrictEqual(validateProductionEnv({ NODE_ENV: 'development' }), { ok: true, errors: [] });

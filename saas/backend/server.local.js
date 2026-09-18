@@ -1833,6 +1833,9 @@ app.get('/api/integracion/propuestas/:id/auditoria', auth, (req, res) => {
 
 app.post('/api/integracion/propuestas', (req, res) => {
   const configuredToken = process.env.CONTAPANAMA_INTEGRATION_TOKEN;
+  if (!configuredToken || !configuredToken.trim()) {
+    return res.status(503).json({ error: 'Integracion no configurada en ContaPanama.' });
+  }
   if (req.get('X-Integration-Token') !== configuredToken) {
     return res.status(401).json({ error: 'Token de integracion invalido.' });
   }

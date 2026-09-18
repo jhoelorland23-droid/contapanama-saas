@@ -9,7 +9,7 @@ const router = express.Router();
 
 const requireIntegrationToken = (req, res, next) => {
   const configuredToken = process.env.CONTAPANAMA_INTEGRATION_TOKEN;
-  if (!configuredToken) {
+  if (!configuredToken || !configuredToken.trim()) {
     return res.status(503).json({ error: 'Integracion no configurada en ContaPanama.' });
   }
   if (req.get('X-Integration-Token') !== configuredToken) {

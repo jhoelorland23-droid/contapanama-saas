@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const { analyze } = require('./credentialAnalysis.cjs');
 const root = path.resolve(__dirname, '../../..');
 const mode = process.argv[2] || 'head';
 if (!['head', 'history', 'bundle'].includes(mode)) throw new Error('Expected head, history or bundle');
@@ -17,9 +18,10 @@ const rules = {
 const findings = [], review = [], seen = new Set();
 function scan(data, file, object, commits = []) {
   const text = data.toString('utf8');
+  for (const finding of analyze(text, file)) findings.push({ ...finding, path: file, object, commits });
   for (const [rule, regex] of Object.entries(rules)) {
     regex.lastIndex = 0;
-    for (const match of text.matchAll(regex)) findings.push({ rule, path: file, object, commits,
+    for (const match of text.matchAll(regex)) findings.push({ rule, severity: 'ERROR', path: file, object, commits,
       line: text.slice(0, match.index).split('\n').length });
   }
   text.split(/\r?\n/).forEach((line, index) => {
@@ -58,10 +60,10 @@ if (mode === 'history') {
   }
 }
 const report = { mode, head: git(['rev-parse', 'HEAD']).toString().trim(), checked: seen.size,
-  commits: commits.length, status: findings.length ? 'FAIL' : 'PASS_PATTERN_SCAN', findings,
+  commits: commits.length, status: findings.some(f => f.severity === 'ERROR') ? 'FAIL' : findings.length ? 'REVIEW_REQUIRED' : 'NO_FINDINGS_REQUIRES_MANUAL_REVIEW', findings,
   broad_context_count: review.length, broad_contexts: review,
   limitation: 'Pattern scan plus manual review required; not proof of absence of all possible secrets.' };
 const out = path.join(root, 'saas/outputs/dynamic-credentials'); fs.mkdirSync(out, { recursive: true });
 fs.writeFileSync(path.join(out, `${mode}-scan.json`), JSON.stringify(report, null, 2));
 console.log(JSON.stringify({ mode, status: report.status, checked: report.checked, commits: report.commits, findings: findings.length, broad_contexts: review.length }));
-process.exitCode = findings.length ? 2 : 0;
+process.exitCode = findings.some(f => f.severity === 'ERROR') ? 2 : findings.length ? 3 : 0;

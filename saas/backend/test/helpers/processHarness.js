@@ -64,19 +64,32 @@ async function startService({ command, args, options = {}, probe, onOutput, onCh
   throw lastError;
 }
 
-function runCaptured(command, args, { timeoutMs = 300000, onOutput, onChild = () => {}, ipc = false, inheritedPipeGraceMs, ...options } = {}) {
+function runCaptured(command, args, { timeoutMs = 300000, onOutput, onChild = () => {}, ipc = false, inheritedPipeGraceMs,
+  readyWhen, startupTimeoutMs = 30000, ...options } = {}) {
   positiveInteger(timeoutMs, 300000, 'command timeout');
+  positiveInteger(startupTimeoutMs, 30000, 'startup timeout');
   return new Promise(resolve => {
+    const started = performance.now();
+    let timedOut = false, grace, settled = false, timer, startupMs = null, ready = !readyWhen;
     const child = spawn(command, args, { ...options, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe', ...(ipc ? ['ipc'] : [])] });
-    const state = capture(child, onOutput);
+    const expire = () => { timedOut = true; child.kill('SIGKILL'); };
+    const state = capture(child, (text, stream) => {
+      onOutput?.(text, stream);
+      if (!ready && readyWhen(state)) {
+        ready = true;
+        startupMs = performance.now() - started;
+        clearTimeout(timer);
+        timer = setTimeout(expire, timeoutMs);
+      }
+    });
     onChild(child);
-    let timedOut = false, grace, settled = false;
-    const timer = setTimeout(() => { timedOut = true; child.kill('SIGKILL'); }, timeoutMs);
+    timer = setTimeout(expire, ready ? timeoutMs : startupTimeoutMs);
     const finish = (code, signal) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer); clearTimeout(grace);
-      resolve({ ...state, code: timedOut || state.error ? 1 : code, signal, timedOut });
+      resolve({ ...state, code: timedOut || state.error ? 1 : code, signal, timedOut, ready, startupMs,
+        timeoutPhase: timedOut ? (ready ? 'execution' : 'startup') : null });
     };
     child.once('close', finish);
     // Only opt in for tools such as pg_ctl whose daemon inherits pipe handles.

@@ -13,8 +13,20 @@ test('captures final stdout/stderr and nonzero exit, including spawn errors', as
   assert.equal(missing.code, 1); assert.equal(missing.error.code, 'ENOENT');
 });
 test('command timeout is failure and retains output', async () => {
-  const r = await runCaptured(process.execPath, ['-e', 'console.log("started");setInterval(()=>{},1000)'], { timeoutMs: 500 });
+  const r = await runCaptured(process.execPath, ['-e', 'console.log("started");setInterval(()=>{},1000)'], {
+    timeoutMs: positiveInteger(process.env.CONTAPANAMA_HARNESS_EXEC_TIMEOUT_MS, 500, 'execution budget'),
+    startupTimeoutMs: positiveInteger(process.env.CONTAPANAMA_QA_STARTUP_TIMEOUT_MS, 30000, 'startup budget'),
+    readyWhen: state => state.stdout.includes('started'),
+  });
   assert.equal(r.timedOut, true); assert.equal(r.code, 1); assert.match(r.stdout, /started/);
+  assert.equal(r.timeoutPhase, 'execution');
+});
+
+test('readiness timeout is bounded even if the child never announces ready', async () => {
+  const r = await runCaptured(process.execPath, ['-e', 'setInterval(()=>{},1000)'], {
+    readyWhen: state => state.stdout.includes('ready'), startupTimeoutMs: 500, timeoutMs: 500,
+  });
+  assert.equal(r.timedOut, true); assert.equal(r.timeoutPhase, 'startup');
 });
 test('startup retries crashed child, polling until ready and preserving both attempts', async () => {
   let attempts = 0, output = '', child;

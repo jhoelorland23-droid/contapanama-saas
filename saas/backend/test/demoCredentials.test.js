@@ -33,7 +33,7 @@ test('empty local API fails closed with seed disabled or missing credential', as
   } finally { fs.rmSync(cwd, { recursive: true, force: true }); }
 });
 
-test('random login, wrong password, persistent user and API restart without reseeding', async () => {
+test('integration fail-closed, explicit token, session survives restart but not a new run', async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'contapanama-demo-auth-'));
   let child;
   const secret = password(), logs = [];
@@ -44,24 +44,47 @@ test('random login, wrong password, persistent user and API restart without rese
   const env = { ...process.env, NODE_ENV: 'test', JWT_SECRET: randomBytes(32).toString('hex'),
     ALLOW_DEMO_SEED: 'true', CONTAPANAMA_QA_PASSWORD: secret, PORT: String(port), HOST: '127.0.0.1',
     CONTAPANAMA_LOCAL_DATA_DIR: path.join(cwd, 'state'), CONTAPANAMA_LOCAL_PERSISTENCE: 'on', DOTENV_CONFIG_PATH: path.join(cwd, 'absent.env') };
+  delete env.CONTAPANAMA_INTEGRATION_TOKEN;
+  const integrationToken = randomBytes(32).toString('hex');
+  const initialJwtKey = env.JWT_SECRET;
   const start = () => startService({ command: process.execPath, args: [path.join(backend, 'server.local.js')],
     options: { cwd, env }, onOutput: text => logs.push(text), probe: async signal => (await fetch(base + '/health', { signal })).ok });
   const login = value => fetch(base + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: 'admin@contapanama.pa', password: value }) });
+  const integrate = token => fetch(base + '/api/integracion/propuestas', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { 'X-Integration-Token': token } : {}) },
+    body: JSON.stringify({ source: 'orlando-cpa-os', source_work_id: 'QA-auth-only',
+      client: { name: 'QA synthetic integration' }, work_order: { service: 'QA', status: 'Aprobado para entregar' } }),
+  });
+  const session = token => fetch(base + '/api/auth/me', { headers: { Authorization: 'Bearer ' + token } });
   try {
     child = await start();
+    assert.equal((await integrate()).status, 503);
+    assert.equal((await integrate(integrationToken)).status, 503);
     assert.equal((await login(password())).status, 401);
     const response = await login(secret); assert.equal(response.status, 200);
-    const user = (await response.json()).user;
+    const { user, token } = await response.json();
+    assert.equal((await session(token)).status, 200);
     const stateFile = path.join(env.CONTAPANAMA_LOCAL_DATA_DIR, 'contapanama-state.json');
     const before = fs.readFileSync(stateFile, 'utf8');
     assert.equal(before.includes(secret), false);
     await stop(child); child = null;
     env.ALLOW_DEMO_SEED = 'false'; delete env.CONTAPANAMA_QA_PASSWORD;
+    env.CONTAPANAMA_INTEGRATION_TOKEN = integrationToken;
     child = await start();
+    assert.equal((await session(token)).status, 200);
     const restarted = await login(secret); assert.equal(restarted.status, 200);
     assert.equal((await restarted.json()).user.id, user.id);
     assert.equal(fs.readFileSync(stateFile, 'utf8'), before);
-    assert.equal(logs.join('').includes(secret), false);
+    assert.equal((await integrate()).status, 401);
+    assert.equal((await integrate(randomBytes(32).toString('hex'))).status, 401);
+    assert.equal((await integrate(integrationToken)).status, 201);
+    await stop(child); child = null;
+    env.JWT_SECRET = randomBytes(32).toString('hex');
+    assert.ok(env.JWT_SECRET !== initialJwtKey);
+    child = await start();
+    assert.equal((await session(token)).status, 401);
+    assert.equal((await login(secret)).status, 200);
+    for (const value of [secret, token, initialJwtKey, env.JWT_SECRET, integrationToken]) assert.equal(logs.join('').includes(value), false);
   } finally { await stop(child); fs.rmSync(cwd, { recursive: true, force: true }); }
 });

@@ -10,6 +10,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
+const JWT_SECRET = require('node:crypto').randomBytes(32).toString('hex');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'contapanama-local-journal-'));
 const stateFile = path.join(temp, 'contapanama-state.json');
 const reviewFile = path.join(root, '.local-data/contapanama-state.json');
@@ -35,7 +36,7 @@ async function start() {
   base = `http://127.0.0.1:${port}`;
   server = await startService({ command: process.execPath, args: [path.join(root, 'server.local.js')],
     options: { cwd: root,
-    env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', JWT_SECRET: require('node:crypto').randomBytes(32).toString('hex'),
+    env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', JWT_SECRET,
       CONTAPANAMA_LOCAL_DATA_DIR: temp, CONTAPANAMA_LOCAL_PERSISTENCE: 'on' } },
     timeoutMs: positiveInteger(process.env.CONTAPANAMA_QA_STARTUP_TIMEOUT_MS, 60000, 'CONTAPANAMA_QA_STARTUP_TIMEOUT_MS'),
     attempts: positiveInteger(process.env.CONTAPANAMA_QA_STARTUP_ATTEMPTS, 3, 'CONTAPANAMA_QA_STARTUP_ATTEMPTS'),

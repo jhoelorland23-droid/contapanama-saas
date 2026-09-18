@@ -23,7 +23,7 @@ const nodeTest = files => [process.execPath, ['--test', ...files]];
 const nodeRun = file => [process.execPath, [file]];
 
 const suites = [
-  { id: 'unit-harness', group: 'unit', cwd: backend, run: nodeTest(['test/benchmarkStatistics.test.js', 'test/processHarness.test.js', 'test/benchmarkRunner.test.js', 'test/securityConfiguration.test.js', 'test/demoCredentials.test.js']) },
+  { id: 'unit-harness', group: 'unit', cwd: backend, run: nodeTest(['test/benchmarkStatistics.test.js', 'test/processHarness.test.js', 'test/benchmarkRunner.test.js', 'test/securityConfiguration.test.js', 'test/demoCredentials.test.js', 'test/credentialScanner.test.js', 'test/harnessStartupTiming.test.js']) },
   { id: 'unit-journal', group: 'ledger', cwd: backend, run: nodeTest(['test/journalLedger.test.js', 'test/journalReport.test.js', 'test/ledgerConsistency.test.js']) },
   { id: 'unit-sync-contract', group: 'ledger', cwd: backend, run: nodeTest(['test/journalSyncContract.test.js', 'test/journalShadow.test.js']) },
   { id: 'unit-corrections', group: 'ledger', cwd: backend, run: nodeTest(['test/documentCorrection.test.js', 'test/entityBooks.test.js']) },
