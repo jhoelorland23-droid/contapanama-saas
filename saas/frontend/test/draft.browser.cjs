@@ -1,3 +1,4 @@
+const qaCredentials = require('./externalCredentials.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { chromium } = require(process.env.CONTAPANAMA_PLAYWRIGHT || 'playwright');
@@ -20,7 +21,9 @@ async function run() {
       cuentas_por_cobrar: 0, cuentas_por_pagar: 0,
     } }));
     await page.goto(process.env.CONTAPANAMA_WEB_URL || 'http://localhost:5173');
-    await page.getByRole('button', { name: 'Usar demo', exact: true }).click();
+    await page.getByLabel('Correo electr\u00f3nico').fill('admin@contapanama.pa');
+    await page.getByLabel('Contrase\u00f1a', { exact: true }).fill(qaCredentials.password);
+    await page.getByRole('button', { name: 'Entrar', exact: true }).click();
     await page.getByText('Centro de Control CPA', { exact: true }).waitFor();
     assert.equal(await page.getByText('BORRADOR QA SIN REGISTRAR', { exact: true }).count(), 0);
     assert.equal((await page.locator('main').innerText()).includes('987,654'), false);

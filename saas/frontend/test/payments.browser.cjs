@@ -1,3 +1,4 @@
+const qaCredentials = require('../../backend/test/helpers/qaCredentials');
 const assert = require('node:assert/strict');
 const { startService, stop, positiveInteger } = require('../../backend/test/helpers/processHarness');
 const { once } = require('node:events');
@@ -66,8 +67,8 @@ async function run() {
         body: body ? JSON.stringify(body) : undefined });
       const data = await r.json(); assert(r.ok, JSON.stringify(data)); return data;
     };
-    const credentials = sqlMode ? { email: `qa-sql-browser-${randomUUID()}@example.com`, password: process.env.CONTAPANAMA_QA_PASSWORD }
-      : { email: 'admin@contapanama.pa', password: process.env.CONTAPANAMA_QA_PASSWORD };
+    const credentials = sqlMode ? { email: `qa-sql-browser-${randomUUID()}@example.com`, password: qaCredentials.randomPassword() }
+      : { email: 'admin@contapanama.pa', password: qaCredentials.password };
     token = (await api(sqlMode ? '/api/auth/register' : '/api/auth/login', { nombre: 'QA navegador SQL', ...credentials })).token;
     const period = new Date().toISOString().slice(0,7);
     const client = await api('/api/clientes', { nombre: 'QA banco navegador', tipo: 'natural', ruc: 'QA-UI-BANK' });
@@ -116,7 +117,9 @@ async function run() {
       await page.getByLabel('Contrase\u00f1a', { exact: true }).fill(credentials.password);
       await page.getByRole('button', { name: 'Entrar', exact: true }).click();
     } else {
-      await page.getByRole('button', { name: 'Usar demo', exact: true }).click();
+      await page.getByLabel('Correo electr\u00f3nico').fill('admin@contapanama.pa');
+      await page.getByLabel('Contrase\u00f1a', { exact: true }).fill(qaCredentials.password);
+      await page.getByRole('button', { name: 'Entrar', exact: true }).click();
     }
     await page.getByRole('button', { name: 'Diario Contable', exact: true }).click();
     const row = page.getByRole('row').filter({ hasText: invoice.descripcion });

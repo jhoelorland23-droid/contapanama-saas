@@ -1,3 +1,4 @@
+const qaCredentials = require('./helpers/qaCredentials');
 // Isolated, manually driven browser fixture. Never reads or writes review data.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -31,8 +32,8 @@ async function main(){
   assert(ready);
   const auxiliary=process.argv.includes('--subledger');
   const login=await fetch(base+'/api/auth/'+(auxiliary?'register':'login'),{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(auxiliary?{nombre:'QA Auxiliar',email:'auxiliar@example.test',password:process.env.CONTAPANAMA_QA_PASSWORD}:
-      {email:'admin@contapanama.pa',password:process.env.CONTAPANAMA_QA_PASSWORD})}).then(r=>r.json());
+    body:JSON.stringify(auxiliary?{nombre:'QA Auxiliar',email:'auxiliar@example.test',password:qaCredentials.randomPassword()}:
+      {email:'admin@contapanama.pa',password:qaCredentials.password})}).then(r=>r.json());
   const post=async(url,body)=>{
     const r=await fetch(base+url,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+login.token},body:JSON.stringify(body)});
     const data=await r.json();assert(r.ok,JSON.stringify(data));return data;

@@ -1,10 +1,11 @@
+const qaCredentials = require('./helpers/qaCredentials');
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 const { legacyEntityFixture } = require('./legacyEntityFixture');
 
 module.exports = async function legacyEntityBooksScenario({ request, requestRaw, install, snapshot, setRole, withSaveFailure, check }) {
   const signup = await request('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nombre: 'QA historial folios', email: 'qa-legacy-entity-' + randomUUID() + '@example.com', password: process.env.CONTAPANAMA_QA_PASSWORD }) });
+    body: JSON.stringify({ nombre: 'QA historial folios', email: 'qa-legacy-entity-' + randomUUID() + '@example.com', password: qaCredentials.randomPassword() }) });
   const uid = signup.user.id;
   const fixture = legacyEntityFixture(uid);
   await install(fixture);
@@ -65,7 +66,7 @@ module.exports = async function legacyEntityBooksScenario({ request, requestRaw,
   const afterNew = await snapshot(uid);
   for (const folio of assigned.folios_libro) assert.deepEqual(afterNew.folios_libro.find(row => row.asiento_id === folio.asiento_id), folio);
   const other = await request('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nombre: 'QA externo', email: 'qa-entity-outsider-' + randomUUID() + '@example.com', password: process.env.CONTAPANAMA_QA_PASSWORD }) });
+    body: JSON.stringify({ nombre: 'QA externo', email: 'qa-entity-outsider-' + randomUUID() + '@example.com', password: qaCredentials.randomPassword() }) });
   const otherHeaders = { ...headers, Authorization: 'Bearer ' + other.token };
   assert.equal((await request(endpoint, { headers: otherHeaders })).total_libros, 0);
   await assert.rejects(request(endpoint + '/incorporar', { method: 'POST', headers: otherHeaders, body: JSON.stringify(approval) }), /409/);

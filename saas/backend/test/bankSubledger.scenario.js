@@ -1,3 +1,4 @@
+const qaCredentials = require('./helpers/qaCredentials');
 const assert=require('node:assert/strict');
 const {randomUUID}=require('node:crypto');
 const {createAccount}=require('./bankAccountFixture');
@@ -43,7 +44,7 @@ module.exports=async function bankSubledgerScenario({request,requestRaw,authHead
   for(const suffix of ['&desde=2048-01-01','&periodo=2048-01','&cuenta_bancaria_id=bad'])await assert.rejects(read(endpoint+suffix),/422/);
   await assert.rejects(read(endpoint+'&cuenta_bancaria_id='+randomUUID()),/404/);
   await assert.rejects(requestRaw(endpoint,{headers:{}}),/401/);
-  const foreign=await send('/api/auth/register',{nombre:'QA Auxiliar ajeno',email:'aux-'+randomUUID()+'@example.test',password:process.env.CONTAPANAMA_QA_PASSWORD});
+  const foreign=await send('/api/auth/register',{nombre:'QA Auxiliar ajeno',email:'aux-'+randomUUID()+'@example.test',password:qaCredentials.randomPassword()});
   await assert.rejects(request(endpoint,{headers:{Authorization:'Bearer '+foreign.token}}),/404/);
   check('subledger cancellation stays in its actual month; month/year and account filters preserve history; GETs cannot mutate source, journal or audit');
 

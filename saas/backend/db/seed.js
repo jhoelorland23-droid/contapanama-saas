@@ -9,14 +9,12 @@ const { query, pool } = require('./index');
 const ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '10');
 
 async function seed() {
-  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_DEMO_SEED !== 'true') {
-    throw new Error('Seed demo bloqueado en produccion. Use npm run admin:ensure para crear o restablecer admin.');
-  }
+  const { password } = require('../config/demoCredentials').requireDemoCredentials();
 
   console.log('\nðŸŒ± Iniciando seed de ContaPanamÃ¡...\n');
 
   // â”€â”€ Usuario admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const hash = await bcrypt.hash(process.env.CONTAPANAMA_QA_PASSWORD, ROUNDS);
+  const hash = await bcrypt.hash(password, ROUNDS);
   const { rows: [admin] } = await query(`
     INSERT INTO usuarios (nombre, email, password_hash, rol)
     VALUES ($1, $2, $3, $4)

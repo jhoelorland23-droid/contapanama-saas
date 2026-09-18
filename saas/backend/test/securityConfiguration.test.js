@@ -1,3 +1,4 @@
+const qaCredentials = require('./helpers/qaCredentials');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -51,7 +52,7 @@ test('explicit random JWT starts isolated local API and authenticates a syntheti
         DOTENV_CONFIG_PATH: path.join(cwd, 'absent.env') } },
       probe: async signal => (await fetch(base + '/health', { signal })).ok });
     const login = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'admin@contapanama.pa', password: process.env.CONTAPANAMA_QA_PASSWORD }) });
+      body: JSON.stringify({ email: 'admin@contapanama.pa', password: qaCredentials.password }) });
     assert.equal(login.status, 200);
     const { token } = await login.json();
     assert.ok(require('jsonwebtoken').verify(token, secret).id);

@@ -1,3 +1,4 @@
+const qaCredentials = require('./helpers/qaCredentials');
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 
@@ -126,7 +127,7 @@ module.exports = async function concurrencyScenario({ request, authHeaders, db, 
   }
   check('monthly/annual closure uniqueness enforced for individual clients and the whole portfolio');
 
-  const foreign = await send('POST', '/api/auth/register', { nombre: 'QA otro propietario', email: 'qa-other-owner@example.com', password: process.env.CONTAPANAMA_QA_PASSWORD });
+  const foreign = await send('POST', '/api/auth/register', { nombre: 'QA otro propietario', email: 'qa-other-owner@example.com', password: qaCredentials.randomPassword() });
   const otherHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${foreign.token}` };
   const otherClient = await request('/api/clientes', { method: 'POST', headers: otherHeaders,
     body: JSON.stringify({ nombre: 'QA cliente ajeno', tipo: 'natural', ruc: 'QA-FOREIGN' }) });

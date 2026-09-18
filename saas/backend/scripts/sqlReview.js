@@ -61,6 +61,7 @@ async function control(c, action) {
   return r.json();
 }
 async function serve(c) {
+  if (!c.seeded) require('../config/demoCredentials').requireDemoCredentials();
   const pg = name => path.join(c.pgBin, name + (process.platform === 'win32' ? '.exe' : ''));
   const data = path.join(root, 'data');
   let api, web, stopping = false;
@@ -135,6 +136,7 @@ async function main() {
   if (!c) c = { kind: 'contapanama-synthetic-review-v1', repo, database: 'contapanama_review',
     password: randomBytes(24).toString('hex'), jwt: randomBytes(32).toString('hex'), controlSecret: randomBytes(32).toString('hex'),
     pgPort: await port(), syncMode: 'full' };
+  if (!c.seeded) require('../config/demoCredentials').requireDemoCredentials();
   c.pgBin = process.env.CONTAPANAMA_PG_BIN || c.pgBin || path.join(os.homedir(), '.cache', 'contapanama-postgres', '17.11', 'pgsql', 'bin');
   if (!fs.existsSync(path.join(c.pgBin, process.platform === 'win32' ? 'pg_ctl.exe' : 'pg_ctl'))) throw new Error('Configure CONTAPANAMA_PG_BIN antes de iniciar.');
   c.apiPort = await port(Number(process.env.CONTAPANAMA_REVIEW_API_PORT || 4000));
@@ -146,7 +148,7 @@ async function main() {
   child.unref(); fs.closeSync(log);
   const until = Date.now() + 120000;
   while (Date.now() < until) {
-    try { console.log(JSON.stringify(await control(c, 'status'))); console.log('Solo datos sinteticos. Login: qa-review@example.test / [REDACTED_QA_PASSWORD]'); return; } catch (_) { await delay(500); }
+    try { console.log(JSON.stringify(await control(c, 'status'))); console.log('Solo datos sinteticos; use la credencial suministrada al setup.'); return; } catch (_) { await delay(500); }
   }
   throw new Error(`Arranque incompleto; revise ${path.join(root, 'review.log')}`);
 }

@@ -1,3 +1,4 @@
+const qaCredentials = require('./helpers/qaCredentials');
 const assert = require('assert');
 const { spawn } = require('child_process');
 const { randomUUID } = require('node:crypto');
@@ -141,7 +142,7 @@ async function run() {
   const login = await request('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'admin@contapanama.pa', password: process.env.CONTAPANAMA_QA_PASSWORD }),
+    body: JSON.stringify({ email: 'admin@contapanama.pa', password: qaCredentials.password }),
   });
   assert.ok(login.token);
 

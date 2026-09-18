@@ -1,3 +1,4 @@
+const qaCredentials = require('./helpers/qaCredentials');
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
@@ -85,7 +86,7 @@ module.exports = async function paymentScenario({ request, requestRaw, authHeade
   assert.equal(listed.data.find(t => t.id === invoice.id).saldo_pendiente, 670);
   const summary = await read(`/api/transacciones/resumen?cliente_id=${client.id}`);
   assert.equal(Number(summary.cuentas_por_cobrar), 670); assert.equal(Number(summary.cuentas_por_pagar), 114);
-  const stranger = await send('POST', '/api/auth/register', { nombre: 'QA otro usuario pagos', email: `qa-payments-${Date.now()}@example.com`, password: process.env.CONTAPANAMA_QA_PASSWORD });
+  const stranger = await send('POST', '/api/auth/register', { nombre: 'QA otro usuario pagos', email: `qa-payments-${Date.now()}@example.com`, password: qaCredentials.randomPassword() });
   const otherHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${stranger.token}` };
   await assert.rejects(request(endpoint, { headers: otherHeaders }), /404/);
   await assert.rejects(request(endpoint, { method: 'POST', headers: otherHeaders, body: JSON.stringify(payload) }), /404/);

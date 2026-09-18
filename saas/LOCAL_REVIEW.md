@@ -13,7 +13,7 @@ Backend:
 Login de revision:
 
 - Email: `admin@contapanama.pa`
-- Password: `[REDACTED_QA_PASSWORD]`
+- Password: `[credencial configurada por el operador]`
 
 ## Modo usado
 

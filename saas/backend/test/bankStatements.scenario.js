@@ -1,3 +1,4 @@
+const qaCredentials = require('./helpers/qaCredentials');
 const assert = require('node:assert/strict');
 const { randomUUID, createHash } = require('node:crypto');
 const PDFDocument = require('pdfkit');
@@ -69,7 +70,7 @@ module.exports=async function bankStatementsScenario({request,requestRaw,authHea
   await setRole(uid,'cliente');
   try{await assert.rejects(send(endpoint,{...body,periodo:'2046-02',idempotencia:randomUUID()}),/403/);}
   finally{await setRole(uid,role);}
-  const other=await send('/api/auth/register',{nombre:'QA Extracto otro usuario',email:'statement-'+randomUUID()+'@example.com',password:process.env.CONTAPANAMA_QA_PASSWORD});
+  const other=await send('/api/auth/register',{nombre:'QA Extracto otro usuario',email:'statement-'+randomUUID()+'@example.com',password:qaCredentials.randomPassword()});
   const foreignHeaders={'Content-Type':'application/json',Authorization:'Bearer '+other.token};
   assert.equal((await request(endpoint+'?anio=2046',{headers:foreignHeaders})).data.length,0);
   await assert.rejects(request(endpoint+scope,{headers:foreignHeaders}),/404/);

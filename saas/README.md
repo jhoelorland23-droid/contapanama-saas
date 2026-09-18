@@ -97,7 +97,7 @@ npm run db:seed
 Crea: usuario admin + 5 clientes + 10 transacciones + vencimientos.
 
 ```
-✓ Usuario admin: admin@contapanama.pa  password: [REDACTED_QA_PASSWORD]
+✓ Usuario admin: admin@contapanama.pa  password: [credencial configurada por el operador]
 ✓ Cliente: Constructora Istmo S.A.
 ✓ Cliente: Carlos Méndez Palacios
 ...
@@ -134,7 +134,7 @@ npm run dev
 ### Login
 - URL: http://localhost:5173
 - Email: `admin@contapanama.pa`
-- Password: `[REDACTED_QA_PASSWORD]`
+- Password: `[credencial configurada por el operador]`
 
 ---
 
@@ -203,7 +203,7 @@ DELETE /api/vencimientos/:id
 # 1. Login
 TOKEN=$(curl -s -X POST http://localhost:4000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@contapanama.pa","password":"[REDACTED_QA_PASSWORD]"}' \
+  -d '{"email":"admin@contapanama.pa","password":"[credencial configurada por el operador]"}' \
   | grep -o '"token":"[^"]*' | cut -d'"' -f4)
 
 # 2. Listar clientes

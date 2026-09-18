@@ -80,6 +80,6 @@ Start-Process "http://localhost:5173"
 Write-Host "`n===== Listo =====" -ForegroundColor Green
 Write-Host "  Abierto en el navegador: http://localhost:5173" -ForegroundColor White
 Write-Host "  Usuario: admin@contapanama.pa" -ForegroundColor White
-Write-Host "  Clave:   [REDACTED_QA_PASSWORD]`n" -ForegroundColor White
+Write-Host "  Clave:   [credencial configurada por el operador]`n" -ForegroundColor White
 Write-Host "  (Deja abiertas las dos ventanas minimizadas de 'node' mientras uses la app.)`n" -ForegroundColor DarkGray
 Start-Sleep -Seconds 4

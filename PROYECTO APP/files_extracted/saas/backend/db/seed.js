@@ -9,17 +9,18 @@ const { query, pool } = require('./index');
 const ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '10');
 
 async function seed() {
+  const { password } = require('../../../../../saas/backend/config/demoCredentials').requireDemoCredentials();
   console.log('\n🌱 Iniciando seed de ContaPanamá...\n');
 
   // ── Usuario admin ──────────────────────────────────────────────────────────
-  const hash = await bcrypt.hash(process.env.CONTAPANAMA_QA_PASSWORD, ROUNDS);
+  const hash = await bcrypt.hash(password, ROUNDS);
   const { rows: [admin] } = await query(`
     INSERT INTO usuarios (nombre, email, password_hash, rol)
     VALUES ($1, $2, $3, $4)
     ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash
     RETURNING id, email
   `, ['Administrador CPA', 'admin@contapanama.pa', hash, 'admin']);
-  console.log('✓ Usuario admin:', admin.email, '  password: [REDACTED_QA_PASSWORD]');
+  console.log('Usuario de revision configurado; password no registrada.');
 
   const uid = admin.id;
 
@@ -85,7 +86,7 @@ async function seed() {
   }
 
   console.log('\n✅ Seed completado exitosamente!\n');
-  console.log('   Login: admin@contapanama.pa  /  [REDACTED_QA_PASSWORD]\n');
+  console.log('   Login: admin@contapanama.pa  /  [credencial configurada por el operador]\n');
   await pool.end();
 }
 

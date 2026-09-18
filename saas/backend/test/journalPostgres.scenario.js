@@ -1,3 +1,4 @@
+const qaCredentials = require('./helpers/qaCredentials');
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 
@@ -116,7 +117,7 @@ module.exports = async function journalScenario({ request, requestRaw, authHeade
   assert.deepEqual(await countOwner(), beforeFailure);
   check('journal failure rolls back source document, journal lines and audit together');
 
-  const signup = await send('POST', '/api/auth/register', { nombre: 'QA historial', email: 'qa-historial@example.com', password: process.env.CONTAPANAMA_QA_PASSWORD });
+  const signup = await send('POST', '/api/auth/register', { nombre: 'QA historial', email: 'qa-historial@example.com', password: qaCredentials.randomPassword() });
   const legacyHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${signup.token}` };
   const legacyRead = url => request(url, { headers: legacyHeaders });
   const incorporate = body => request('/api/contabilidad/libro/incorporar', { method: 'POST', headers: legacyHeaders, body: JSON.stringify(body) });

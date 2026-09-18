@@ -1,3 +1,4 @@
+const qaCredentials = require('./helpers/qaCredentials');
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
@@ -111,7 +112,7 @@ module.exports = async function correctionScenario({ request, requestRaw, authHe
   assert.equal(Number((await read(paidUrl)).monto), 100);
   check('closures and a payment posted after review prevent financial corrections');
 
-  const other = await send('POST', '/api/auth/register', { nombre: 'QA correcciones ajenas', email: `qa-corrections-${randomUUID()}@example.com`, password: process.env.CONTAPANAMA_QA_PASSWORD });
+  const other = await send('POST', '/api/auth/register', { nombre: 'QA correcciones ajenas', email: `qa-corrections-${randomUUID()}@example.com`, password: qaCredentials.randomPassword() });
   const otherHeaders = { ...authHeaders, Authorization: `Bearer ${other.token}` };
   for (const suffix of ['/revision', '/auditoria']) await assert.rejects(request(url + suffix, { headers: otherHeaders }), /404/);
   await assert.rejects(request(url, { method: 'PUT', headers: otherHeaders, body: JSON.stringify(correction) }), /404/);

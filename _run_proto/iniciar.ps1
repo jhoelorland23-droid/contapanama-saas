@@ -48,7 +48,7 @@ if ($ok) {
   Start-Process "http://localhost:5173"
   Write-Host "`n=== LISTO ===" -ForegroundColor Green
   Write-Host "App:   http://localhost:5173" -ForegroundColor Green
-  Write-Host "Login: admin@contapanama.pa  /  [REDACTED_QA_PASSWORD]" -ForegroundColor Green
+  Write-Host "Login: admin@contapanama.pa  /  [credencial configurada por el operador]" -ForegroundColor Green
   Write-Host "`n(Deja abiertas las dos ventanas de PowerShell mientras uses la app.)`n"
 } else {
   Write-Host "El backend no respondio. Revisa la ventana del backend por errores." -ForegroundColor Red

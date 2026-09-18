@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { randomBytes } from 'node:crypto';
 import { createApiClient, SESSION_EVENT } from '../src/api.mjs';
 
 function harness(fetchImpl, timeoutMs = 1000) {
@@ -17,12 +18,13 @@ function harness(fetchImpl, timeoutMs = 1000) {
 }
 
 test('incorrect login preserves the real error and does not send or clear a saved session', async () => {
+  const password = randomBytes(32).toString('hex');
   const h = harness(async (_url, opts) => {
     assert.equal(opts.headers.Authorization, undefined);
-    assert.deepEqual(JSON.parse(opts.body), { email: 'cpa@example.com', password: process.env.CONTAPANAMA_QA_PASSWORD });
+    assert.deepEqual(JSON.parse(opts.body), { email: 'cpa@example.com', password });
     return Response.json({ error: 'Credenciales incorrectas' }, { status: 401 });
   });
-  await assert.rejects(h.api.post('/api/auth/login', { email: 'cpa@example.com', password: process.env.CONTAPANAMA_QA_PASSWORD }),
+  await assert.rejects(h.api.post('/api/auth/login', { email: 'cpa@example.com', password }),
     { message: 'Credenciales incorrectas', status: 401 });
   assert.equal(h.saved.get('cp_token'), 'test-session');
   assert.deepEqual(h.events, []);

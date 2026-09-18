@@ -1,3 +1,4 @@
+const qaCredentials = require('../../backend/test/helpers/qaCredentials');
 const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
 const { once } = require('node:events');
@@ -22,7 +23,7 @@ async function run() {
   const uid = randomUUID(), fixture = legacyEntityFixture(uid);
   const stateFile = path.join(temp, 'contapanama-state.json');
   fs.writeFileSync(stateFile, JSON.stringify({ ...fixture, usuarios: [{ id: uid, nombre: 'QA Folios CPA',
-    email: 'admin@contapanama.pa', password_hash: bcrypt.hashSync(process.env.CONTAPANAMA_QA_PASSWORD, 8), activo: true, rol: 'admin' }] }));
+    email: 'admin@contapanama.pa', password_hash: bcrypt.hashSync(qaCredentials.password, 8), activo: true, rol: 'admin' }] }));
   const disk = () => JSON.parse(fs.readFileSync(stateFile, 'utf8'));
   const probe = net.createServer(); probe.listen(0, '127.0.0.1'); await once(probe, 'listening');
   const port = probe.address().port;
@@ -68,7 +69,9 @@ async function run() {
       routes.add(pending); pending.finally(() => routes.delete(pending)); return pending;
     });
     await page.goto(process.env.CONTAPANAMA_WEB_URL || 'http://localhost:5173/', { waitUntil: 'domcontentloaded' });
-    await page.getByRole('button', { name: 'Usar demo', exact: true }).click();
+    await page.getByLabel('Correo electr\u00f3nico').fill('admin@contapanama.pa');
+    await page.getByLabel('Contrase\u00f1a', { exact: true }).fill(qaCredentials.password);
+    await page.getByRole('button', { name: 'Entrar', exact: true }).click();
     await page.getByRole('button', { name: 'Contabilidad', exact: true }).click();
     await page.getByRole('button', { name: 'Revisar folios', exact: true }).waitFor();
     const originals = disk().asientos_contables;

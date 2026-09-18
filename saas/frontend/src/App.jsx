@@ -12,9 +12,6 @@ import LedgerConsistency from "./LedgerConsistency.jsx";
 //  API LAYER - todas las llamadas al backend centralizadas
 // --------------------------------------------------------------------------
 const API_URL = import.meta.env.VITE_API_URL || "";
-const reviewDemo = import.meta.env.VITE_SQL_REVIEW === '1'
-  ? { email: 'qa-review@example.test', password: '' }
-  : { email: 'admin@contapanama.pa', password: '' };
 const apiClient = createApiClient(API_URL);
 const isRegisteredTransaction = tx => (tx.estado_contable ?? 'registrado') === 'registrado';
 
@@ -315,15 +312,6 @@ const AuthScreen = () => {
     finally { setBusy(false); }
   };
 
-  const handleDemoLogin = async () => {
-    if (busy) return;
-    const demo = reviewDemo;
-    setForm(current => ({ ...current, ...demo }));
-    setErr(""); setBusy(true);
-    try { await login(demo.email, demo.password); }
-    catch (e) { setErr(e.message); }
-    finally { setBusy(false); }
-  };
 
   return (
     <div style={{minHeight:"100vh",background:"linear-gradient(135deg,#0f1923 0%,#0e3a5c 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
@@ -346,16 +334,6 @@ const AuthScreen = () => {
           {mode==="login"?"Accede a tu plataforma contable":"Registra tu cuenta de contador"}
         </div>
 
-        {mode==="login" && import.meta.env.DEV && (
-          <button
-            type="button"
-            onClick={handleDemoLogin}
-            disabled={busy}
-            style={{width:"100%",marginBottom:16,padding:"10px 12px",border:`1px solid ${C.info}`,borderRadius:8,background:C.infoBg,color:C.infoText,fontWeight:700,cursor:"pointer"}}
-          >
-            Usar demo
-          </button>
-        )}
 
         {(err || sessionNotice) && <ErrBox msg={err || sessionNotice}/>}
 

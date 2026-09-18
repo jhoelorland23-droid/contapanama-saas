@@ -1,3 +1,4 @@
+const qaCredentials = require('./helpers/qaCredentials');
 const assert = require('assert');
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -47,7 +48,7 @@ async function waitForServer() {
 async function run() {
   await waitForServer();
 
-  const body = email => JSON.stringify({ email, password: process.env.CONTAPANAMA_QA_PASSWORD });
+  const body = email => JSON.stringify({ email, password: qaCredentials.randomPassword() });
   const headers = { 'Content-Type': 'application/json' };
 
   for (let i = 0; i < 3; i += 1) {
@@ -72,7 +73,7 @@ async function run() {
   const otherAccount = await request('/api/auth/login', {
     method: 'POST',
     headers,
-    body: JSON.stringify({ email: 'otro@contapanama.pa', password: process.env.CONTAPANAMA_QA_PASSWORD }),
+    body: JSON.stringify({ email: 'otro@contapanama.pa', password: qaCredentials.randomPassword() }),
   });
   assert.strictEqual(otherAccount.response.status, 401);
 

@@ -1,3 +1,4 @@
+const qaCredentials = require('./externalCredentials.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
@@ -51,7 +52,9 @@ async function run() {
       return route.continue();
     });
     await page.goto(process.env.CONTAPANAMA_WEB_URL || 'http://localhost:5173');
-    await page.getByRole('button', { name: 'Usar demo', exact: true }).click();
+    await page.getByLabel('Correo electr\u00f3nico').fill('admin@contapanama.pa');
+    await page.getByLabel('Contrase\u00f1a', { exact: true }).fill(qaCredentials.password);
+    await page.getByRole('button', { name: 'Entrar', exact: true }).click();
     await page.getByRole('button', { name: 'Diario Contable', exact: true }).click();
     const row = page.getByRole('row').filter({ hasText: 'QA honorarios diciembre' });
     await row.waitFor();

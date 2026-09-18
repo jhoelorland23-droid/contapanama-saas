@@ -1,3 +1,4 @@
+const qaCredentials = require('./helpers/qaCredentials');
 const assert = require('node:assert/strict');
 const { startService, stop: stopChild, positiveInteger } = require('./helpers/processHarness');
 const { fileMetadata } = require('./helpers/fileMetadata');
@@ -56,7 +57,7 @@ async function request(url, body, method = body ? 'POST' : 'GET') {
 
 async function main() {
   await start();
-  token = (await request('/api/auth/login', { email: 'admin@contapanama.pa', password: process.env.CONTAPANAMA_QA_PASSWORD })).token;
+  token = (await request('/api/auth/login', { email: 'admin@contapanama.pa', password: qaCredentials.password })).token;
   const user = await request('/api/auth/me');
   const initial = await request('/api/contabilidad/libro');
   assert.equal(initial.estado, 'pendiente_revision');
@@ -169,7 +170,7 @@ async function main() {
   assert.equal((await request('/api/contabilidad/libro')).consistencia.estado, 'consistente');
   check('unreviewed local source changes cannot be silently published by an unrelated write and are reported as documentos != libro');
 
-  const other = await request('/api/auth/register', { nombre: 'QA otro usuario', email: 'qa-other-local@example.com', password: process.env.CONTAPANAMA_QA_PASSWORD });
+  const other = await request('/api/auth/register', { nombre: 'QA otro usuario', email: 'qa-other-local@example.com', password: qaCredentials.randomPassword() });
   const ownerToken = token;
   token = other.token;
   assert.equal((await request('/api/contabilidad/libro')).estado, 'pendiente_revision');

@@ -211,7 +211,7 @@ Archivo de instrucciones: `LOCAL_REVIEW.md`.
 
 Credenciales:
 - `admin@contapanama.pa`
-- `[REDACTED_QA_PASSWORD]`
+- `[credencial configurada por el operador]`
 
 ## Mejora Beta 1.1 disponible
 

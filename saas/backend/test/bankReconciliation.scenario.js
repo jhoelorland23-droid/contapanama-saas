@@ -1,3 +1,4 @@
+const qaCredentials = require('./helpers/qaCredentials');
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
@@ -73,7 +74,7 @@ module.exports = async function bankScenario({ request, requestRaw, authHeaders,
     await assert.rejects(send(matchUrl,{movimiento_id:bank.id}),/403/);
   } finally { await setRole(uid,originalRole); }
   check('client role cannot create, assign or reconcile bank entries');
-  const other = await send('/api/auth/register',{nombre:'QA Otro propietario banco',email:`bank-${randomUUID()}@example.com`,password:process.env.CONTAPANAMA_QA_PASSWORD});
+  const other = await send('/api/auth/register',{nombre:'QA Otro propietario banco',email:`bank-${randomUUID()}@example.com`,password:qaCredentials.randomPassword()});
   const otherHeaders = {'Content-Type':'application/json',Authorization:`Bearer ${other.token}`};
   await assert.rejects(request('/api/fiscal/conciliacion?'+scope(a),{headers:otherHeaders}),/404/);
   for(const query of ['periodo=2040-13','anio=abc','periodo=2040-01&anio=2040','cliente_id=bad']){

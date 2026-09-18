@@ -1,3 +1,4 @@
+const qaCredentials = require('./helpers/qaCredentials');
 const assert = require('node:assert/strict');
 const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
@@ -206,7 +207,7 @@ module.exports = async function bankAccountsScenario({ request, requestRaw, auth
   await assert.rejects(send(`/api/transacciones/${pendingDocument.id}/pagos`, { ...paymentPayload, fecha: '2041-04-02', idempotencia: randomUUID() }), /409.*archivada/);
   assert.equal((await send('/api/movimientos-bancarios/bulk', batch)).repetido, true);
   assert.equal((await send(paymentUrl, paymentPayload)).repetido, true);
-  const other = await send('/api/auth/register', { nombre: 'QA Cuenta otro usuario', email: `accounts-${randomUUID()}@example.com`, password: process.env.CONTAPANAMA_QA_PASSWORD });
+  const other = await send('/api/auth/register', { nombre: 'QA Cuenta otro usuario', email: `accounts-${randomUUID()}@example.com`, password: qaCredentials.randomPassword() });
   const otherHeaders = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + other.token };
   assert.equal((await request('/api/cuentas-bancarias', { headers: otherHeaders })).data.length, 0);
   await assert.rejects(request(reportUrl, { headers: otherHeaders }), /404/);

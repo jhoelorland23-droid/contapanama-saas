@@ -1,3 +1,4 @@
+const qaCredentials = require('./externalCredentials.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { chromium } = require(process.env.CONTAPANAMA_PLAYWRIGHT || 'playwright');
@@ -19,14 +20,14 @@ async function run() {
       status: 401, json: { error: 'Credenciales incorrectas' },
     }));
     await page.getByLabel('Correo electr\u00f3nico').fill('incorrecto@example.com');
-    await page.getByLabel('Contrase\u00f1a', { exact: true }).fill('incorrecta');
+    await page.getByLabel('Contrase\u00f1a', { exact: true }).fill(qaCredentials.randomPassword());
     await page.getByRole('button', { name: 'Entrar', exact: true }).click();
     await page.getByText('Atenci\u00f3n: Credenciales incorrectas', { exact: true }).waitFor();
     assert.equal(await page.getByText(/Tu sesi.*venci/).count(), 0);
     console.log('PASS: incorrect password shows credential error');
     await page.unroute('**/api/auth/login');
     await page.getByLabel('Correo electr\u00f3nico').fill('admin@contapanama.pa');
-    await page.getByLabel('Contrase\u00f1a', { exact: true }).fill(process.env.CONTAPANAMA_QA_PASSWORD);
+    await page.getByLabel('Contrase\u00f1a', { exact: true }).fill(qaCredentials.password);
     await page.getByLabel('Contrase\u00f1a', { exact: true }).press('Enter');
     await waitForApp();
     assert.equal(await sessionSaved(), true);
@@ -59,7 +60,9 @@ async function run() {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: path.join(out, 'login-mobile.png'), fullPage: true });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-    await page.getByRole('button', { name: 'Usar demo', exact: true }).click();
+    await page.getByLabel('Correo electr\u00f3nico').fill('admin@contapanama.pa');
+    await page.getByLabel('Contrase\u00f1a', { exact: true }).fill(qaCredentials.password);
+    await page.getByRole('button', { name: 'Entrar', exact: true }).click();
     await waitForApp();
     console.log('PASS: expired session returns to login; demo access recovers');
     assert.deepEqual(errors, []);

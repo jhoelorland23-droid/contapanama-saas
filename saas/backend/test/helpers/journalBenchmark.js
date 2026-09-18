@@ -1,10 +1,11 @@
+const qaCredentials = require('./qaCredentials');
 const assert = require('node:assert/strict');
 const { summarize } = require('./benchmarkStatistics');
 
 module.exports = async function journalBenchmark({ request, check, documents }) {
   assert(Number.isSafeInteger(documents) && documents >= 6, 'Benchmark needs at least six documents');
   const signup = await request('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nombre: 'QA rendimiento libro', email: 'qa-benchmark@example.com', password: process.env.CONTAPANAMA_QA_PASSWORD }) });
+    body: JSON.stringify({ nombre: 'QA rendimiento libro', email: 'qa-benchmark@example.com', password: qaCredentials.randomPassword() }) });
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${signup.token}` };
   const send = (url, body) => request(url, { method: 'POST', headers, body: JSON.stringify(body) });
   const timed = async action => { const start = process.hrtime.bigint(); await action(); return Number(process.hrtime.bigint() - start) / 1e6; };

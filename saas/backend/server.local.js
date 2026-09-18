@@ -3,6 +3,7 @@ require('dotenv').config();
 let JWT_SECRET;
 try {
   JWT_SECRET = require('./config/validateEnv').requireJwtSecret();
+  if (process.env.NODE_ENV === 'production') throw new Error('Servidor local de revision bloqueado en produccion');
 } catch (error) {
   console.error(error.message);
   process.exit(1);
@@ -139,12 +140,13 @@ app.use(localStore.middleware({
 
 const seed = async () => {
   if (state.usuarios.length) return;
+  const { password } = require('./config/demoCredentials').requireDemoCredentials();
   const adminId = randomUUID();
   state.usuarios.push({
     id: adminId,
     nombre: 'Administrador CPA',
     email: 'admin@contapanama.pa',
-    password_hash: await bcrypt.hash(process.env.CONTAPANAMA_QA_PASSWORD, 8),
+    password_hash: await bcrypt.hash(password, 8),
     rol: 'admin',
     activo: true,
     created_at: now(),
@@ -1909,8 +1911,8 @@ app.use((error, _req, res, _next) => {
 seed().then(() => {
   app.listen(PORT, HOST, () => {
     console.log(`\nContaPanama API local lista en http://${HOST}:${PORT}`);
-    console.log('Login de revision: admin@contapanama.pa / [REDACTED_QA_PASSWORD]\n');
+    console.log('Cuenta de revision configurada; credenciales gestionadas por el harness.');
   });
-});
+}).catch(error => { console.error(error.message); process.exitCode = 1; });
 
 module.exports = app;

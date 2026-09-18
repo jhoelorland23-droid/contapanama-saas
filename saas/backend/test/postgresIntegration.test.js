@@ -1,3 +1,4 @@
+const qaCredentials = require('./helpers/qaCredentials');
 const assert = require('node:assert/strict');
 const { randomBytes } = require('node:crypto');
 const { startService, stop, runCaptured, positiveInteger } = require('./helpers/processHarness');
@@ -222,7 +223,7 @@ async function main() {
   check('duplicate legacy closures stop migration; all prior rows and constraints remain intact');
   await startApi();
   const signup = await request('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nombre: 'QA PostgreSQL CPA', email: 'qa-postgres@example.com', password: process.env.CONTAPANAMA_QA_PASSWORD }) });
+    body: JSON.stringify({ nombre: 'QA PostgreSQL CPA', email: 'qa-postgres@example.com', password: qaCredentials.randomPassword() }) });
   const authHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${signup.token}` };
   assert.equal((await request('/api/auth/me', { headers: authHeaders })).id, signup.user.id);
   check('registration and authenticated SQL API');

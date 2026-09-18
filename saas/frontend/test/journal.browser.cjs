@@ -1,3 +1,4 @@
+const qaCredentials = require('../../backend/test/helpers/qaCredentials');
 const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
 const { once } = require('node:events');
@@ -47,7 +48,7 @@ async function run() {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     assert(ready, serverOutput);
-    token = (await api('/api/auth/login', { email: 'admin@contapanama.pa', password: process.env.CONTAPANAMA_QA_PASSWORD })).token;
+    token = (await api('/api/auth/login', { email: 'admin@contapanama.pa', password: qaCredentials.password })).token;
     browser = await chromium.launch({ headless: true, channel: process.env.CONTAPANAMA_BROWSER_CHANNEL || undefined });
     page = await browser.newPage({ viewport: { width: 1440, height: 1050 } });
     page.on('pageerror', error => pageErrors.push(error.message));
@@ -85,7 +86,9 @@ async function run() {
       return pending;
     });
     await page.goto(process.env.CONTAPANAMA_WEB_URL || 'http://localhost:5173/', { waitUntil: 'domcontentloaded' });
-    await page.getByRole('button', { name: 'Usar demo', exact: true }).click();
+    await page.getByLabel('Correo electr\u00f3nico').fill('admin@contapanama.pa');
+    await page.getByLabel('Contrase\u00f1a', { exact: true }).fill(qaCredentials.password);
+    await page.getByRole('button', { name: 'Entrar', exact: true }).click();
     await page.getByRole('button', { name: 'Contabilidad', exact: true }).click();
     await page.getByText('Actualizaci\u00f3n del servidor pendiente', { exact: true }).waitFor();
     assert.equal(await page.getByRole('button', { name: 'Revisar libro', exact: true }).count(), 0);

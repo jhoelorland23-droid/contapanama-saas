@@ -285,7 +285,7 @@ const AuthScreen = () => {
         </div>
 
         <div style={{marginTop:24,padding:"12px 16px",background:C.infoBg,borderRadius:8,fontSize:12,color:C.infoText}}>
-          <strong>Demo:</strong> admin@contapanama.pa / [REDACTED_QA_PASSWORD]
+          <strong>Demo:</strong> admin@contapanama.pa / [credencial configurada por el operador]
         </div>
       </div>
     </div>
