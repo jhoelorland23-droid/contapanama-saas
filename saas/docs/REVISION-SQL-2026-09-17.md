@@ -1,5 +1,10 @@
 # Integracion del ledger auditado
 
+Informe historico de `historical-revision-05`. La revision preintegracion posterior esta documentada
+en `REVISION-PREINTEGRACION-2026-09-17.md`. Las mediciones de dos puntos de este informe
+no son el criterio vigente: quedan sustituidas por OLS con warm-up y tres corridas.
+Las corridas crudas de `outputs/` se conservan localmente, pero dejan de versionarse.
+
 ## Procedencia y limites
 
 - Fuente: rama `ledger-audit`, commit `historical-revision-03`, precedido por `historical-revision-02`.
@@ -29,7 +34,7 @@ Prerequisito: PostgreSQL local (`CONTAPANAMA_PG_BIN`, con `initdb` y `pg_ctl`) y
 Comando alternativo, desde backend: `node scripts/sqlReview.js start`.
 Estado: `node scripts/sqlReview.js status`. Reinicio de API: `node scripts/sqlReview.js restart-api`.
 
-Cuenta exclusivamente sintetica: `qa-review@example.test`, clave `[REDACTED_QA_PASSWORD]`.
+Acceso exclusivamente sintetico mediante el boton Demo del entorno de revision.
 Dos clientes QA y dos documentos QA. No representa la cartera del usuario ni certifica saldos reales.
 El seed entra por la misma API financiera y usa claves de idempotencia estables.
 La interfaz configura proxy y puerto desde el lanzador; HMR deja de fijar 5173.
@@ -56,7 +61,9 @@ Aplicar requiere todas estas opciones:
 `--apply`, `--target-owner=<CPA-existente>`, `--target-database=<base>`,
 `--expect-source-hash=<SHA256>` y `--confirm="IMPORTAR DOCUMENTOS SIN PUBLICAR"`.
 El destino del propietario debe estar vacio. Nunca combina historiales ni sobreescribe registros.
-Una copia no sintetica requiere ademas `--authorize-real-copy=<SHA256>`.
+Toda fuente, incluidos fixtures sinteticos, requiere `--authorize-source-hash=<SHA256>`.
+La opcion anterior `--authorize-real-copy=<SHA256>` sigue como alias explicito compatible.
+La etiqueta metadata.kind de la fuente no autoriza ninguna escritura; solo `apply === true` aplica.
 Una base distinta de `contapanama_qa`/`contapanama_review` requiere
 `CONTAPANAMA_IMPORT_TARGET_AUTH=<base>:<SHA256>`.
 Produccion exige separadamente `CONTAPANAMA_IMPORT_PRODUCTION_AUTH=<base>:<SHA256>`.

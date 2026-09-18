@@ -1,0 +1,670 @@
+{
+  "schema": "contapanama-premerge-evidence-v1",
+  "branch": "codex-ledger-integration",
+  "initial_head": "historical-revision-05",
+  "implementation_commit": "historical-revision-06",
+  "synthetic_data_only": true,
+  "default_mode": "full",
+  "qa": {
+    "shadow": {
+      "counts": {
+        "PASS": 22,
+        "FAIL": 0,
+        "SKIPPED": 0
+      },
+      "suites": [
+        {
+          "suite": "unit-harness",
+          "status": "PASS",
+          "seconds": 2.2
+        },
+        {
+          "suite": "unit-journal",
+          "status": "PASS",
+          "seconds": 1.5
+        },
+        {
+          "suite": "unit-sync-contract",
+          "status": "PASS",
+          "seconds": 9.3
+        },
+        {
+          "suite": "unit-corrections",
+          "status": "PASS",
+          "seconds": 1
+        },
+        {
+          "suite": "unit-local-store",
+          "status": "PASS",
+          "seconds": 1.9
+        },
+        {
+          "suite": "unit-local-import",
+          "status": "PASS",
+          "seconds": 0.7
+        },
+        {
+          "suite": "unit-bank",
+          "status": "PASS",
+          "seconds": 2
+        },
+        {
+          "suite": "payments",
+          "status": "PASS",
+          "seconds": 0.9
+        },
+        {
+          "suite": "accounting",
+          "status": "PASS",
+          "seconds": 0.9
+        },
+        {
+          "suite": "accounting-periods",
+          "status": "PASS",
+          "seconds": 0.4
+        },
+        {
+          "suite": "accounting-pdf",
+          "status": "PASS",
+          "seconds": 1.4
+        },
+        {
+          "suite": "journal-pdf-layout",
+          "status": "PASS",
+          "seconds": 3.2
+        },
+        {
+          "suite": "auth-security",
+          "status": "PASS",
+          "seconds": 3
+        },
+        {
+          "suite": "env-validation",
+          "status": "PASS",
+          "seconds": 0.3
+        },
+        {
+          "suite": "fiscal",
+          "status": "PASS",
+          "seconds": 0.2
+        },
+        {
+          "suite": "schema-contract",
+          "status": "PASS",
+          "seconds": 0.2
+        },
+        {
+          "suite": "integration-local",
+          "status": "PASS",
+          "seconds": 10.4
+        },
+        {
+          "suite": "journal-local",
+          "status": "PASS",
+          "seconds": 63.8
+        },
+        {
+          "suite": "postgres",
+          "status": "PASS",
+          "seconds": 108.7
+        },
+        {
+          "suite": "frontend-unit",
+          "status": "PASS",
+          "seconds": 1.4
+        },
+        {
+          "suite": "frontend-build",
+          "status": "PASS",
+          "seconds": 8
+        },
+        {
+          "suite": "frontend-browser",
+          "status": "PASS",
+          "seconds": 172.2
+        }
+      ]
+    },
+    "incremental": {
+      "counts": {
+        "PASS": 22,
+        "FAIL": 0,
+        "SKIPPED": 0
+      },
+      "suites": [
+        {
+          "suite": "unit-harness",
+          "status": "PASS",
+          "seconds": 2
+        },
+        {
+          "suite": "unit-journal",
+          "status": "PASS",
+          "seconds": 1.3
+        },
+        {
+          "suite": "unit-sync-contract",
+          "status": "PASS",
+          "seconds": 7.2
+        },
+        {
+          "suite": "unit-corrections",
+          "status": "PASS",
+          "seconds": 0.6
+        },
+        {
+          "suite": "unit-local-store",
+          "status": "PASS",
+          "seconds": 1.3
+        },
+        {
+          "suite": "unit-local-import",
+          "status": "PASS",
+          "seconds": 0.5
+        },
+        {
+          "suite": "unit-bank",
+          "status": "PASS",
+          "seconds": 1
+        },
+        {
+          "suite": "payments",
+          "status": "PASS",
+          "seconds": 0.3
+        },
+        {
+          "suite": "accounting",
+          "status": "PASS",
+          "seconds": 0.4
+        },
+        {
+          "suite": "accounting-periods",
+          "status": "PASS",
+          "seconds": 0.3
+        },
+        {
+          "suite": "accounting-pdf",
+          "status": "PASS",
+          "seconds": 1.1
+        },
+        {
+          "suite": "journal-pdf-layout",
+          "status": "PASS",
+          "seconds": 2.2
+        },
+        {
+          "suite": "auth-security",
+          "status": "PASS",
+          "seconds": 2
+        },
+        {
+          "suite": "env-validation",
+          "status": "PASS",
+          "seconds": 0.3
+        },
+        {
+          "suite": "fiscal",
+          "status": "PASS",
+          "seconds": 0.2
+        },
+        {
+          "suite": "schema-contract",
+          "status": "PASS",
+          "seconds": 0.2
+        },
+        {
+          "suite": "integration-local",
+          "status": "PASS",
+          "seconds": 9.9
+        },
+        {
+          "suite": "journal-local",
+          "status": "PASS",
+          "seconds": 57.6
+        },
+        {
+          "suite": "postgres",
+          "status": "PASS",
+          "seconds": 99.3
+        },
+        {
+          "suite": "frontend-unit",
+          "status": "PASS",
+          "seconds": 1.4
+        },
+        {
+          "suite": "frontend-build",
+          "status": "PASS",
+          "seconds": 4.4
+        },
+        {
+          "suite": "frontend-browser",
+          "status": "PASS",
+          "seconds": 157.5
+        }
+      ]
+    }
+  },
+  "postgres": {
+    "shadow": {
+      "passed": true,
+      "checks": 95,
+      "backup_restore": true,
+      "shadow": {
+        "total": 227,
+        "eligible": 128,
+        "compared": 128,
+        "fallback": 99,
+        "divergences": 0,
+        "fallback_reasons": {
+          "no_touched_documents": 98,
+          "pending_outside_touched": 1,
+          "incremental_probe_error": 0
+        }
+      }
+    },
+    "shadow_with_browser": {
+      "passed": true,
+      "postgres_report_checks": 96,
+      "backup_restore": true,
+      "shadow": {
+        "total": 250,
+        "eligible": 140,
+        "compared": 140,
+        "fallback": 110,
+        "divergences": 0,
+        "fallback_reasons": {
+          "no_touched_documents": 109,
+          "pending_outside_touched": 1,
+          "incremental_probe_error": 0
+        },
+        "coverage_ratio": 0.56,
+        "eligible_coverage_ratio": 1
+      }
+    },
+    "incremental_with_browser": {
+      "passed": true,
+      "checks": 94,
+      "backup_restore": true
+    }
+  },
+  "benchmark": {
+    "schema": 1,
+    "mode": "incremental",
+    "documents": 300,
+    "completed_runs": 3,
+    "fixture": "deterministic-v1-four-clients-2090",
+    "runs": [
+      {
+        "run": 1,
+        "method": "OLS of unrounded window p50 on document midpoint; first window excluded",
+        "percentile_method": "linear interpolation (R type 7)",
+        "windows": [
+          {
+            "warmup": true,
+            "first_document": 1,
+            "last_document": 50,
+            "midpoint_document": 25.5,
+            "count": 50,
+            "p50_ms": 49.170550000000006,
+            "p95_ms": 66.277335,
+            "p99_ms": 169.83587899999964
+          },
+          {
+            "warmup": false,
+            "first_document": 51,
+            "last_document": 100,
+            "midpoint_document": 75.5,
+            "count": 50,
+            "p50_ms": 59.318250000000006,
+            "p95_ms": 71.9713,
+            "p99_ms": 78.601036
+          },
+          {
+            "warmup": false,
+            "first_document": 101,
+            "last_document": 150,
+            "midpoint_document": 125.5,
+            "count": 50,
+            "p50_ms": 55.07175,
+            "p95_ms": 67.633545,
+            "p99_ms": 69.681479
+          },
+          {
+            "warmup": false,
+            "first_document": 151,
+            "last_document": 200,
+            "midpoint_document": 175.5,
+            "count": 50,
+            "p50_ms": 45.891400000000004,
+            "p95_ms": 53.236835,
+            "p99_ms": 59.15063499999999
+          },
+          {
+            "warmup": false,
+            "first_document": 201,
+            "last_document": 250,
+            "midpoint_document": 225.5,
+            "count": 50,
+            "p50_ms": 44.672399999999996,
+            "p95_ms": 51.483665,
+            "p99_ms": 52.905573
+          },
+          {
+            "warmup": false,
+            "first_document": 251,
+            "last_document": 300,
+            "midpoint_document": 275.5,
+            "count": 50,
+            "p50_ms": 46.31145,
+            "p95_ms": 63.60011,
+            "p99_ms": 67.660694
+          }
+        ],
+        "measured": {
+          "count": 250,
+          "p50_ms": 47.7679,
+          "p95_ms": 67.37865000000001,
+          "p99_ms": 71.89361999999998
+        },
+        "regression": {
+          "n": 5,
+          "df": 3,
+          "slope_ms_per_document": -0.07282590000000003,
+          "intercept_ms": 63.033995450000006,
+          "r2": 0.7749215146513856,
+          "slope_standard_error": 0.02266018054201393,
+          "slope_ci95": [
+            -0.1449407078429768,
+            -0.000711092157023252
+          ],
+          "ci_method": "two-sided Student-t; independent homoskedastic window residuals assumed"
+        }
+      },
+      {
+        "run": 2,
+        "method": "OLS of unrounded window p50 on document midpoint; first window excluded",
+        "percentile_method": "linear interpolation (R type 7)",
+        "windows": [
+          {
+            "warmup": true,
+            "first_document": 1,
+            "last_document": 50,
+            "midpoint_document": 25.5,
+            "count": 50,
+            "p50_ms": 49.2403,
+            "p95_ms": 64.14233999999999,
+            "p99_ms": 171.38302499999958
+          },
+          {
+            "warmup": false,
+            "first_document": 51,
+            "last_document": 100,
+            "midpoint_document": 75.5,
+            "count": 50,
+            "p50_ms": 46.959,
+            "p95_ms": 66.23876,
+            "p99_ms": 74.62100299999999
+          },
+          {
+            "warmup": false,
+            "first_document": 101,
+            "last_document": 150,
+            "midpoint_document": 125.5,
+            "count": 50,
+            "p50_ms": 45.42295,
+            "p95_ms": 54.091379999999994,
+            "p99_ms": 66.17247799999998
+          },
+          {
+            "warmup": false,
+            "first_document": 151,
+            "last_document": 200,
+            "midpoint_document": 175.5,
+            "count": 50,
+            "p50_ms": 45.0219,
+            "p95_ms": 58.44505999999999,
+            "p99_ms": 73.54454499999994
+          },
+          {
+            "warmup": false,
+            "first_document": 201,
+            "last_document": 250,
+            "midpoint_document": 225.5,
+            "count": 50,
+            "p50_ms": 45.22195,
+            "p95_ms": 52.734379999999994,
+            "p99_ms": 71.99019299999999
+          },
+          {
+            "warmup": false,
+            "first_document": 251,
+            "last_document": 300,
+            "midpoint_document": 275.5,
+            "count": 50,
+            "p50_ms": 57.32555,
+            "p95_ms": 67.813715,
+            "p99_ms": 76.40975599999997
+          }
+        ],
+        "measured": {
+          "count": 250,
+          "p50_ms": 46.625299999999996,
+          "p95_ms": 66.43811,
+          "p99_ms": 76.03176199999997
+        },
+        "regression": {
+          "n": 5,
+          "df": 3,
+          "slope_ms_per_document": 0.04106419999999998,
+          "intercept_ms": 40.7835029,
+          "r2": 0.37884507936766054,
+          "slope_standard_error": 0.030357910668555567,
+          "slope_ci95": [
+            -0.05554822064325447,
+            0.13767662064325442
+          ],
+          "ci_method": "two-sided Student-t; independent homoskedastic window residuals assumed"
+        }
+      },
+      {
+        "run": 3,
+        "method": "OLS of unrounded window p50 on document midpoint; first window excluded",
+        "percentile_method": "linear interpolation (R type 7)",
+        "windows": [
+          {
+            "warmup": true,
+            "first_document": 1,
+            "last_document": 50,
+            "midpoint_document": 25.5,
+            "count": 50,
+            "p50_ms": 48.9559,
+            "p95_ms": 120.37295499999992,
+            "p99_ms": 234.71648599999963
+          },
+          {
+            "warmup": false,
+            "first_document": 51,
+            "last_document": 100,
+            "midpoint_document": 75.5,
+            "count": 50,
+            "p50_ms": 47.77705,
+            "p95_ms": 62.524924999999996,
+            "p99_ms": 71.69945999999997
+          },
+          {
+            "warmup": false,
+            "first_document": 101,
+            "last_document": 150,
+            "midpoint_document": 125.5,
+            "count": 50,
+            "p50_ms": 45.88655,
+            "p95_ms": 57.235985,
+            "p99_ms": 62.013845999999994
+          },
+          {
+            "warmup": false,
+            "first_document": 151,
+            "last_document": 200,
+            "midpoint_document": 175.5,
+            "count": 50,
+            "p50_ms": 46.790549999999996,
+            "p95_ms": 61.282525,
+            "p99_ms": 66.06374
+          },
+          {
+            "warmup": false,
+            "first_document": 201,
+            "last_document": 250,
+            "midpoint_document": 225.5,
+            "count": 50,
+            "p50_ms": 45.8825,
+            "p95_ms": 61.31407499999999,
+            "p99_ms": 65.43435199999999
+          },
+          {
+            "warmup": false,
+            "first_document": 251,
+            "last_document": 300,
+            "midpoint_document": 275.5,
+            "count": 50,
+            "p50_ms": 47.5253,
+            "p95_ms": 65.79768,
+            "p99_ms": 78.80175999999997
+          }
+        ],
+        "measured": {
+          "count": 250,
+          "p50_ms": 46.75095,
+          "p95_ms": 62.69444,
+          "p99_ms": 69.222287
+        },
+        "regression": {
+          "n": 5,
+          "df": 3,
+          "slope_ms_per_document": -0.0010151000000000038,
+          "intercept_ms": 46.950540049999994,
+          "r2": 0.008169799968142155,
+          "slope_standard_error": 0.006457451496010901,
+          "slope_ci95": [
+            -0.02156559265502374,
+            0.019535392655023732
+          ],
+          "ci_method": "two-sided Student-t; independent homoskedastic window residuals assumed"
+        }
+      }
+    ],
+    "across_runs": {
+      "runs": 3,
+      "df": 2,
+      "mean_slope_ms_per_document": -0.010925600000000016,
+      "between_run_slope_ci95": [
+        -0.15398265060139507,
+        0.13213145060139506
+      ],
+      "conservative_growth_ms_per_document": 0,
+      "threshold_ms_per_document": 0.05,
+      "pass_point_estimate": true,
+      "pass_confidence_upper_bound": false,
+      "interpretation": "no positive growth detected",
+      "ci_method": "two-sided Student-t of independent fresh-cluster run slopes"
+    },
+    "caveat": "Per-run CI assumes independent homoskedastic window residuals; sequential timings may be autocorrelated. No pooled independence claim."
+  },
+  "changed_files": [
+    ".gitignore",
+    "saas/backend/db/importLocalState.js",
+    "saas/backend/scripts/benchmarkRunner.js",
+    "saas/backend/scripts/qa.js",
+    "saas/backend/services/entityBooks.js",
+    "saas/backend/services/journalIncrementalSql.js",
+    "saas/backend/services/journalRepository.js",
+    "saas/backend/services/ledgerConsistency.js",
+    "saas/backend/test/benchmarkRunner.test.js",
+    "saas/backend/test/benchmarkStatistics.test.js",
+    "saas/backend/test/entityBooks.test.js",
+    "saas/backend/test/helpers/README.md",
+    "saas/backend/test/helpers/benchmarkStatistics.js",
+    "saas/backend/test/helpers/fileMetadata.js",
+    "saas/backend/test/helpers/journalBenchmark.js",
+    "saas/backend/test/helpers/processHarness.js",
+    "saas/backend/test/helpers/shadowCoverage.js",
+    "saas/backend/test/importLocalState.scenario.js",
+    "saas/backend/test/importLocalState.test.js",
+    "saas/backend/test/journalBench.scenario.js",
+    "saas/backend/test/journalShadow.scenario.js",
+    "saas/backend/test/ledgerConsistency.test.js",
+    "saas/backend/test/localJournalIntegration.test.js",
+    "saas/backend/test/postgresIntegration.test.js",
+    "saas/backend/test/processHarness.test.js",
+    "saas/docs/REVISION-PREINTEGRACION-2026-09-17.md",
+    "saas/docs/REVISION-SQL-2026-09-17.md",
+    "saas/docs/evidence/ledger-premerge-2026-09-17.json",
+    "saas/frontend/src/LedgerConsistency.jsx",
+    "saas/frontend/src/ledgerConsistency.mjs",
+    "saas/frontend/test/ledgerConsistency.browser.scenario.cjs",
+    "saas/frontend/test/ledgerConsistency.test.mjs",
+    "saas/frontend/test/ledgerSql.browser.scenario.cjs",
+    "saas/frontend/test/payments.browser.cjs"
+  ],
+  "raw_files_untracked": [
+    "saas/outputs/access-qa/RESULTADOS.md",
+    "saas/outputs/bank-accounts-postgres-qa/results.json",
+    "saas/outputs/bank-accounts-qa/RESULTADOS.md",
+    "saas/outputs/bank-accounts-qa/results.json",
+    "saas/outputs/bank-accounts-ui-postgres-qa/results.json",
+    "saas/outputs/bank-accounts-ui-qa/RESULTADOS.md",
+    "saas/outputs/bank-accounts-ui-qa/activation.json",
+    "saas/outputs/bank-accounts-ui-qa/results.json",
+    "saas/outputs/bank-closing-postgres-qa/results.json",
+    "saas/outputs/bank-closing-qa/RESULTADOS.md",
+    "saas/outputs/bank-closing-qa/activation.json",
+    "saas/outputs/bank-closing-qa/results.json",
+    "saas/outputs/bank-statements-postgres-qa/results.json",
+    "saas/outputs/bank-statements-qa/RESULTADOS.md",
+    "saas/outputs/bank-statements-qa/activation.json",
+    "saas/outputs/bank-statements-qa/results.json",
+    "saas/outputs/bank-subledger-postgres-qa/results.json",
+    "saas/outputs/bank-subledger-qa/results.json",
+    "saas/outputs/benchmark-full-before/results.json",
+    "saas/outputs/benchmark-incremental-final/plan-cpu.json",
+    "saas/outputs/benchmark-incremental-final/results.json",
+    "saas/outputs/codex-ledger-baseline-20260917/summary.json",
+    "saas/outputs/correction-postgres-qa/results.json",
+    "saas/outputs/correction-qa/RESULTADOS.md",
+    "saas/outputs/correction-qa/browser-results.json",
+    "saas/outputs/correction-qa/results.json",
+    "saas/outputs/draft-isolation-qa/RESULTADOS.md",
+    "saas/outputs/entity-books-postgres-qa/results.json",
+    "saas/outputs/entity-books-qa/RESULTADOS.md",
+    "saas/outputs/entity-books-qa/browser-results.json",
+    "saas/outputs/entity-books-qa/entity-browser-results.json",
+    "saas/outputs/entity-books-qa/results.json",
+    "saas/outputs/journal-pdf-postgres-qa/results.json",
+    "saas/outputs/journal-qa/RESULTADOS.md",
+    "saas/outputs/journal-qa/results.json",
+    "saas/outputs/ledger-audit-fase2-qa/plan-bench.json",
+    "saas/outputs/ledger-audit-fase2-qa/postgres-results.json",
+    "saas/outputs/ledger-audit-fase2-qa/qa-summary.json",
+    "saas/outputs/ledger-audit-postgres-qa/bench-300-documentos.json",
+    "saas/outputs/ledger-audit-postgres-qa/results.json",
+    "saas/outputs/local-journal-qa/RESULTADOS.md",
+    "saas/outputs/local-journal-qa/browser-results.json",
+    "saas/outputs/local-journal-qa/results.json",
+    "saas/outputs/payment-ledger-qa/RESULTADOS.md",
+    "saas/outputs/period-accounting-qa/RESULTADOS.md",
+    "saas/outputs/postgres-qa/RESULTADOS.md",
+    "saas/outputs/postgres-qa/results.json",
+    "saas/outputs/qa-acceptance-shadow/postgres-evidence/browser-results.json",
+    "saas/outputs/qa-acceptance-shadow/postgres-evidence/results.json",
+    "saas/outputs/qa-acceptance-shadow/summary.json",
+    "saas/outputs/reconciliation-postgres-qa/results.json",
+    "saas/outputs/reconciliation-qa/RESULTADOS.md",
+    "saas/outputs/reconciliation-qa/results.json"
+  ],
+  "limits": [
+    "Benchmark point estimate passes; upper bound of between-run CI95 exceeds 0.05 ms/document.",
+    "Historical Git commits were not rewritten.",
+    "Visual five-state fixtures are separate from real SQL persistence scenarios."
+  ]
+}
