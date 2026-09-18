@@ -1,6 +1,11 @@
 # ContaPanamá — arranque completo (Postgres + backend + frontend live)
 $ErrorActionPreference = "Stop"
-$root = Split-Path -Parent $PSScriptRoot
+foreach ($name in @('POSTGRES_USER', 'POSTGRES_PASSWORD', 'POSTGRES_DB')) {
+  if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+    throw "$name requerido. No se inicio ningun contenedor."
+  }
+}
+$root    = Split-Path -Parent $PSScriptRoot
 $backend = "$root\PROYECTO APP\files_extracted\saas\backend"
 $runDir  = "$root\_run_proto"
 $dockerBin = "C:\Program Files\Docker\Docker\resources\bin"
@@ -20,9 +25,9 @@ Write-Host "[1/4] PostgreSQL..." -ForegroundColor Yellow
 $exists = docker ps -a --filter "name=contapanama_db" --format "{{.Names}}"
 if ($exists -eq "contapanama_db") { docker start contapanama_db | Out-Null }
 else {
-  docker run -d --name contapanama_db -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD -e POSTGRES_DB=contapanama -p 5432:5432 postgres:16-alpine | Out-Null
+  docker run -d --name contapanama_db -e POSTGRES_USER -e POSTGRES_PASSWORD -e POSTGRES_DB -p 5432:5432 postgres:16-alpine | Out-Null
 }
-for ($i=0; $i -lt 40; $i++) { docker exec contapanama_db pg_isready -U postgres -d contapanama 2>$null | Out-Null; if ($LASTEXITCODE -eq 0) { break }; Start-Sleep 2 }
+for ($i=0; $i -lt 40; $i++) { docker exec contapanama_db pg_isready -U $env:POSTGRES_USER -d $env:POSTGRES_DB 2>$null | Out-Null; if ($LASTEXITCODE -eq 0) { break }; Start-Sleep 2 }
 Write-Host "      PostgreSQL listo." -ForegroundColor Green
 
 # 3) Backend en ventana propia

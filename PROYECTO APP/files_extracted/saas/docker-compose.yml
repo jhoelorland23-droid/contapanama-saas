@@ -6,9 +6,9 @@ services:
     container_name: contapanama_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER requerido}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requerido}
-      POSTGRES_DB: contapanama
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB requerido}
     ports:
       - "5432:5432"
     volumes:
@@ -20,7 +20,7 @@ services:
       - ./database/migration_fase4.sql:/docker-entrypoint-initdb.d/05_migration_fase4.sql:ro
       - ./database/migration_fase5.sql:/docker-entrypoint-initdb.d/06_migration_fase5.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d contapanama"]
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -30,7 +30,7 @@ services:
     container_name: contapanama_pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@contapanama.pa
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:?PGADMIN_DEFAULT_EMAIL requerido}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:?PGADMIN_DEFAULT_PASSWORD requerido}
     ports:
       - "5050:80"

@@ -5,6 +5,11 @@
 # ============================================================================
 
 $ErrorActionPreference = "Stop"
+foreach ($name in @('POSTGRES_USER', 'POSTGRES_PASSWORD', 'POSTGRES_DB')) {
+  if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+    throw "$name requerido. No se inicio ningun contenedor."
+  }
+}
 $ROOT     = $PSScriptRoot
 $BACKEND  = Join-Path $ROOT "PROYECTO APP\files_extracted\saas\backend"
 $SERVE    = Join-Path $ROOT "_run_proto\_serve.js"
@@ -41,9 +46,9 @@ if ($exists) {
   & $DOCKER start contapanama_db *> $null
 } else {
   Warn "Creando base de datos por primera vez..."
-  & $DOCKER run -d --name contapanama_db -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD -e POSTGRES_DB=contapanama -p 5432:5432 postgres:16-alpine *> $null
+  & $DOCKER run -d --name contapanama_db -e POSTGRES_USER -e POSTGRES_PASSWORD -e POSTGRES_DB -p 5432:5432 postgres:16-alpine *> $null
 }
-for ($i=0; $i -lt 30; $i++) { & $DOCKER exec contapanama_db pg_isready -U postgres -d contapanama *> $null; if ($LASTEXITCODE -eq 0) { break }; Start-Sleep -Seconds 2 }
+for ($i=0; $i -lt 30; $i++) { & $DOCKER exec contapanama_db pg_isready -U $env:POSTGRES_USER -d $env:POSTGRES_DB *> $null; if ($LASTEXITCODE -eq 0) { break }; Start-Sleep -Seconds 2 }
 if (-not $exists) {
   Warn "Aplicando migraciones y datos demo..."
   Push-Location $BACKEND; node db/migrate.js; node db/seed.js; Pop-Location

@@ -36,3 +36,20 @@ build/
 # Corridas crudas de QA: pueden contener credenciales o tokens de prueba.
 # Conservar solo evidencia revisada y sin secretos en saas/docs/evidence/.
 /saas/outputs/
+
+# Instaladores, paquetes duplicados y respaldos: no pertenecen al codigo fuente.
+*.zip
+*.exe
+*.msi
+*.7z
+*.tar
+*.gz
+*.dump
+*.backup
+*.sqlite
+*.sqlite3
+*.db
+*.csv
+.env.*
+!.env.example
+!.env.sample

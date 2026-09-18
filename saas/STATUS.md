@@ -9,20 +9,20 @@ Fecha de corte vigente: 2026-09-14
 - Compara flujos y cantidades por separado, ademas del saldo neto. Detecta discontinuidad respecto de la ultima version del mes anterior. Meses sin extracto permanecen visibles; nunca se inventa saldo cero.
 - Consultas y descargas no escriben en el libro. Cargas con rol, propietario y periodo abierto; idempotencia y guardado atomico de soporte, metadatos, operacion y auditoria. SQL y modo local conservan el historial.
 - Validacion: 72 pruebas/grupos backend, 20 frontend, 53 locales y 76 PostgreSQL. Restauracion identica de 19 tablas, incluidos cinco extractos y sus PDF. Build index-peP4Xpo3.js, 403.38 kB. Interfaz probada con cliente y PDF sinteticos: alta, segunda version, doce meses, descarga original y formulario movil/escritorio. Detalle: outputs/bank-statements-qa/RESULTADOS.md.
-Metadatos privados de la revision local retirados; se conserva la exigencia de revision CPA.
-Metadatos privados de la revision local retirados; se conserva la exigencia de revision CPA.
+- Activacion historica con respaldo y reinicio verificados. Metadatos privados retirados del documento versionado.
+- Se preservaron las colecciones anteriores y se agrego extractos_bancarios vacia; huellas y conteos privados no se publican.
 - Los importes se transcriben manualmente: no se extraen ni verifican contra el contenido del PDF automaticamente. Una coincidencia aritmetica NO es conciliacion de saldos ni aprobacion CPA.
 - Pendiente: auxiliar por cuenta enlazado al libro, apertura, partidas conciliatorias, aprobacion independiente e integracion del extracto aprobado como requisito del cierre. El cierre interno anterior sigue validando vinculos, no certifica saldos. No listo para produccion.
 
 ## Cierre con evidencia bancaria
 
-Metadatos privados de la revision local retirados; se conserva la exigencia de revision CPA.
+- ACTIVADO en revision local. Centro CPA, cierre, cartera, matriz por cliente, resumen de 12 meses y PDF usan el mismo verificador de vinculos bancarios al corte.
 - Una marca conciliado no basta: se exige un movimiento unico con igual propietario, cliente, cuenta, banco, importe y direccion. Los pagos pendientes anteriores y las filas bancarias sin respaldo impiden el cierre interno.
 - El cierre/reapertura exige rol contador o administrador y un mes/anio completo. Se rechazan filtros desde/hasta/fecha_corte y combinaciones ambiguas antes de guardar. En PostgreSQL la evidencia del cierre se consulta dentro de la transaccion que serializa las escrituras contables.
 - La bitacora del cierre conserva el resultado del control bancario. Pantalla y PDF distinguen movimientos vinculados de saldos de extracto, que siguen NO verificados. Este control no completa aun la conciliacion de saldos ni certifica estados financieros.
 - Validacion: 66 pruebas/grupos backend, 18 frontend, 46 grupos locales y 68 PostgreSQL; restauracion identica de 18 tablas. Build index-BVDJcFdG.js, 391.60 kB. PDF del cierre revisado visualmente y limites de texto comprobados. Detalle: outputs/bank-closing-qa/RESULTADOS.md.
 - Acceso y control vigente comprobados en navegador y API: ocho excepciones anteriores visibles en septiembre y en los doce meses de 2026; cierre bloqueado. El libro sigue pendiente de incorporacion CPA, con cero asientos publicados.
-Metadatos privados de la revision local retirados; se conserva la exigencia de revision CPA.
+- Respaldo y preservacion verificados historicamente; metadatos privados omitidos. No hubo aprobacion, correccion ni cierre automatico del historial real.
 - Siguiente prioridad: extractos por cuenta con saldos inicial/final y soporte, partidas conciliatorias y auxiliar enlazado al libro. El cierre interno actual valida vinculos, pero todavia no exige un extracto conciliado aprobado por un segundo revisor.
 
 ## Cuentas individuales: interfaz y validacion
@@ -34,7 +34,7 @@ Metadatos privados de la revision local retirados; se conserva la exigencia de r
 - CSV revisado por cuenta y cliente, validacion integral y exportacion con identidad. Un envio bancario incierto conserva el cuerpo y clave en sessionStorage, separado por usuario y operacion, para recuperarlo tras recargar la misma pestana. No reescribe la solicitud con campos modificados.
 - PDF de conciliacion y paquete CPA distinguen cuentas del mismo banco. Corregida fuga de nombres de otros clientes en el paquete filtrado; descargas mensuales/anuales conservan cliente_id desde Reportes.
 - Validacion de cuentas: 56 pruebas/grupos backend, siete frontend, 41 grupos locales y 63 PostgreSQL, incluidos navegador y restauracion identica de 18 tablas. Build index-77TptsHq.js, 390.56 kB. Detalle: outputs/bank-accounts-ui-qa/RESULTADOS.md.
-Metadatos privados de la revision local retirados; se conserva la exigencia de revision CPA.
+- Se preservaron las colecciones existentes y se agregaron cuentas_bancarias y operaciones_bancarias vacias. Historial pendiente de revision CPA; metadatos privados omitidos.
 - Pendiente posterior: saldos de extracto inicial/final, auxiliar de banco por cuenta ligado al libro, anulacion bancaria auditada y validacion de excepciones en el cierre. El neto de movimientos NO es un saldo bancario certificado. No declarar lista para produccion.
 
 ## Conciliacion por cliente - ultimo avance
@@ -44,7 +44,7 @@ Metadatos privados de la revision local retirados; se conserva la exigencia de r
 - CSV con parser, revision de lote y rechazo completo ante errores; PDF y pantalla sin los anteriores limites de ocho/45 filas. Exportaciones con identidad del cliente.
 - El informe ahora muestra movimientos netos, NO saldos de extracto certificados. Cero diferencia no implica conciliacion completa.
 - Validacion de esta etapa: 48 pruebas/grupos backend, tres CSV, 31 locales, 52 PostgreSQL y navegador contra ambos modos. Build correcto. Restauracion identica de 16 tablas con 115 filas bancarias. Evidencia: outputs/reconciliation-qa/RESULTADOS.md.
-Metadatos privados de la revision local retirados; se conserva la exigencia de revision CPA.
+- Backend reiniciado de forma controlada con respaldo. Estado preservado; metadatos privados omitidos.
 - Ocho flags historicos de conciliacion sin movimiento bancario se muestran como pendientes de revision. No fueron corregidos ni aprobados automaticamente.
 - Sigue pendiente la conciliacion por cuenta individual con saldos de extracto, idempotencia de importacion, anulacion bancaria auditada y su control obligatorio en el cierre CPA. No declarar listo para produccion.
 
@@ -67,14 +67,14 @@ Entorno local operativo en http://localhost:5173/. No habilitado aun para produc
 - Nuevo PDF del libro diario mensual/anual, separado del diario combinado documental: asientos publicados, numeracion conservada, reversos, documentos/pagos de origen y secciones por cliente. Disponible en Contabilidad > PDF libro diario cuando el libro este incorporado.
 - Correcciones controladas: motivo obligatorio, rol contador/administrador, revision vigente del documento y reintentos sin duplicacion. Motivo por documento en reversos/reemplazos, bitacora con antes/despues y responsable, diario y CSV. Los PDF del libro conservan el motivo. Los cambios de metadatos sin efecto en las cuentas no generan dinero nuevo.
 - Validacion de correcciones del 2026-09-09: 16 grupos locales, 10 de navegador y 37 PostgreSQL, con respaldo/restauracion de 46 asientos, 97 lineas y 79 eventos de auditoria. El 2026-09-14 se repitieron 33 pruebas/grupos unitarios, el acceso real en navegador y el build. Ver outputs/correction-qa/RESULTADOS.md y outputs/correction-postgres-qa/results.json.
-Metadatos privados de la revision local retirados; se conserva la exigencia de revision CPA.
+- ACTIVADO el 2026-09-14: se verificaron procesos y puertos antes del reinicio. El libro sigue pendiente de revision CPA. No se incorporo el historial automaticamente; conteos privados omitidos.
 - Build, pruebas locales y navegador con PostgreSQL: ver outputs/postgres-qa/RESULTADOS.md y results.json.
-Metadatos privados de la revision local retirados; se conserva la exigencia de revision CPA.
+- Antes de activar se preservo el estado mas reciente. Las colecciones existentes permanecen identicas; el guardado tras iniciar sesion agrega unicamente libros_contables y asientos_contables vacios. No se restaura una copia antigua sobre cambios posteriores.
 - start-local.ps1 comprueba la respuesta de salud de la API y el HTML de ContaPanama antes de anunciar disponibilidad; no basta con haber creado un proceso.
 - Libros por cliente ACTIVADOS el 2026-09-14: identificador propio y folios internos continuos por entidad, sin renumerar los asientos originales de cartera. Los registros sin cliente pertenecen a una serie provisional independiente. Directorio de libros, filtros mensual/anual, CSV y PDF conservan esa identidad.
 - El historial publicado anterior a los folios requiere revision CPA separada, huella vigente y confirmacion expresa. Las nuevas operaciones asignan su folio en la misma transaccion; no se permite publicar sin folio ni editar/eliminar la numeracion. Se probaron cambios de cliente con reverso en la entidad de origen y reemplazo en la de destino.
 - Validacion de libros por cliente: 40 pruebas/grupos de regresion, 25 grupos locales, 46 PostgreSQL y 14 grupos de navegador, ademas del flujo de pagos en navegador contra PostgreSQL. Respaldo/restauracion: 16 tablas, 66 asientos, 137 lineas, 66 folios y 14 libros de entidad. Build correcto. Evidencia: outputs/entity-books-qa/RESULTADOS.md y outputs/entity-books-postgres-qa/results.json.
-Metadatos privados de la revision local retirados; se conserva la exigencia de revision CPA.
+- Activacion historica con respaldo: solo se reinicio el backend propio verificado y se preservaron las colecciones existentes. Se agregaron libros_entidad y folios_libro vacios. El historial sigue pendiente de incorporacion CPA. Metadatos privados omitidos.
 - Pendientes principales: revision/incorporacion CPA del historial; aprobacion independiente de ajustes por otro responsable; apertura y cierres patrimoniales; conciliacion con saldos iniciales/finales; control fiscal por contribuyente; permisos de firma y despliegue productivo. La incorporacion inicial sigue siendo por cartera, aunque los libros y folios son independientes por entidad. La confirmacion de quien corrige no equivale a doble aprobacion. Los PDF son extractos internos, no una certificacion de cumplimiento formal. La vista general en movil aun requiere adaptar la navegacion y las tablas anchas; los nuevos dialogos si fueron verificados.
 
 Los apartados siguientes conservan el historial de la revision inicial de 2026-08-12.
@@ -82,7 +82,7 @@ Sus afirmaciones de ausencia de /api/contabilidad o db/migrate.js ya no describe
 
 ## Origen revisado
 
-- Copia de trabajo creada desde `[PRIVATE_PATH_REMOVED]`.
+- Copia de trabajo creada desde un paquete local; ruta privada omitida.
 - Ruta de trabajo: `work/contapanama-saas-beta1/saas`.
 - No se detecto repositorio Git dentro de la copia extraida; no fue posible crear commit de restauracion.
 - El ZIP original no fue modificado.

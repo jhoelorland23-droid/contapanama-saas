@@ -1,5 +1,13 @@
 require('dotenv').config();
 
+let JWT_SECRET;
+try {
+  JWT_SECRET = require('./config/validateEnv').requireJwtSecret();
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -42,7 +50,6 @@ const app = express();
 const asyncRoute = action => (req, res, next) => Promise.resolve().then(() => action(req, res)).catch(next);
 const PORT = process.env.PORT || 4000;
 const HOST = process.env.HOST || '127.0.0.1';
-const JWT_SECRET = process.env.JWT_SECRET;
 const LOCAL_DATA_DIR = process.env.CONTAPANAMA_LOCAL_DATA_DIR || path.join(__dirname, '.local-data');
 const LOCAL_STATE_FILE = path.join(LOCAL_DATA_DIR, 'contapanama-state.json');
 

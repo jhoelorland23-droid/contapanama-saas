@@ -31,6 +31,9 @@ const { logAction } = require('../services/audit');
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.trim().length < 32) {
+  throw new Error('JWT_SECRET requerido: configure al menos 32 caracteres aleatorios en el entorno.');
+}
 
 const validate = (req, res, next) => {
   const e = validationResult(req);

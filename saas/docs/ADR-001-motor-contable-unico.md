@@ -16,7 +16,7 @@ ContaPanama tiene hoy **dos motores contables completos** que exponen la misma A
 | Banco | `bankMovementRepository.sqlBankMovementRepository` | `bankMovementRepository.createLocalBankMovementRepository` + `localBankIntegrity` |
 | Rutas | 91 rutas + 6 alias (`/api/conciliacion/*`, `POST /api/movimientos-bancarios/match`) | las mismas 91 rutas (**0 rutas exclusivas del local**) |
 | Validacion de entrada | `express-validator` en las 10 rutas | validacion manual en cada handler |
-| Autenticacion | JWT + consulta de usuario en BD; 503 si la BD no responde | JWT + usuario en memoria; `JWT_SECRET` con valor por defecto si falta |
+| Autenticacion | JWT + consulta de usuario en BD; 503 si la BD no responde | JWT + usuario en memoria; ahora exige `JWT_SECRET` explicito, sin fallback |
 | Uso actual | Pruebas PostgreSQL (81–85 grupos) | **La app de revision del usuario** (`start-local.ps1`, http://localhost:5173) |
 
 La superficie de rutas es identica (inventario generado con `grep` sobre ambos servidores; ver seccion 3), pero cada handler esta escrito dos veces. Los servicios de dominio puros si estan compartidos (`accountingEngine`, `journalLedger`, `paymentLedger`, `entityBooks`, `bankPosting`, `documentCorrection`, `documentIdempotency`, `ledgerConsistency`, `fiscalEngine`, `pdfService`, `journalReport`, `reconciliationReport`): la duplicacion esta en la capa HTTP y en la capa de persistencia.
@@ -52,7 +52,7 @@ Ninguna de estas diferencias esta cubierta por una prueba que ejecute el **mismo
 Principios:
 1. Toda regla contable nueva se implementa una sola vez, en servicios puros compartidos, y se expone por las rutas de `server.js`.
 2. La app de revision del usuario se ejecuta contra `server.js` con un PostgreSQL local (Docker `docker-compose.yml` ya existente, o el cluster de `~/.cache/contapanama-postgres/17.11`).
-Metadatos privados de la revision local retirados; se conserva la exigencia de revision CPA.
+3. El historial privado del JSON **no se migra automaticamente**: se exporta, se carga en PostgreSQL por API o script revisable, y el CPA incorpora el libro con `POST /api/contabilidad/libro/incorporar` y regulariza las excepciones como muestra `test/integrationLocal.test.js`. Conteos privados retirados del documento versionado.
 
 ## 5. Plan de transicion
 

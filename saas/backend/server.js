@@ -1,5 +1,12 @@
 require('dotenv').config();
 
+try {
+  require('./config/validateEnv').requireJwtSecret();
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
+
 const express     = require('express');
 const cors        = require('cors');
 const helmet      = require('helmet');

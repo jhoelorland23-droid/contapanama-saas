@@ -67,9 +67,8 @@ docker-compose ps
 ```
 
 pgAdmin disponible en http://localhost:5050
-- Email: `admin@contapanama.pa`
-- Password: `<PGADMIN_PASSWORD>`
-- Servidor: host=`postgres`, puerto=`5432`, db=`contapanama`, user=`postgres`, pass=`<POSTGRES_PASSWORD>`
+- Email/password: valores explicitos de PGADMIN_DEFAULT_EMAIL y PGADMIN_DEFAULT_PASSWORD.
+- Servidor: host=`postgres`, puerto=`5432`; base, usuario y password segun las variables POSTGRES_*.
 
 ---
 
@@ -80,9 +79,10 @@ cp .env.example .env
 npm install
 ```
 
-El `.env` por defecto ya apunta a Docker. Si usas PostgreSQL local, edita `DATABASE_URL`.
+Configure las variables POSTGRES_* y PGADMIN_DEFAULT_* obligatorias en el entorno.
+Configure `DATABASE_URL` del backend con sus propias credenciales, sin valores predeterminados.
 
-Generar JWT_SECRET seguro (opcional pero recomendado):
+Generar JWT_SECRET seguro (obligatorio):
 ```bash
 node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 # Copia el resultado en JWT_SECRET del .env

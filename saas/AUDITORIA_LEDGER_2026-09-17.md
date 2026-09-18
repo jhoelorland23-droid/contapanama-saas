@@ -6,9 +6,9 @@ Sin migracion de historial, sin cambios destructivos, sin despliegue. Rama `ledg
 ## A. Estado real encontrado
 
 1. **El trabajo de Codex no estaba en el repositorio git** `APP CONTA PANAMA` (rama `master`, un solo commit "Linea base del proyecto").
-   Vivia, sin control de versiones, en `[PRIVATE_PATH_REMOVED]`.
+   Vivia, sin control de versiones, en una copia local; ruta privada omitida.
    En esta rama se importo esa carpeta como `saas/` excluyendo `node_modules`, `backend/.env`, `backend/.local-data/`
-Metadatos privados de la revision local retirados; se conserva la exigencia de revision CPA.
+   (estado privado de revision; conteos y huella omitidos), logs, PDF y PNG. La carpeta original de Codex no se toco.
 2. El libro persistente existe y es mas amplio de lo reportado: ademas de asientos/lineas hay libros por entidad con folios
    (`libros_entidad`, `folios_libro`), dimensiones bancarias inmutables (`dimensiones_bancarias`), cuentas, extractos y auxiliar bancario.
 3. La app de revision local (`server.local.js`) **no usa PostgreSQL**: es un servidor paralelo de 1 890 lineas con estado en memoria
@@ -45,7 +45,7 @@ Metadatos privados de la revision local retirados; se conserva la exigencia de r
    Corregido: `CONTAPANAMA_STATEMENT_TIMEOUT_MS` (60 s por defecto) aplicado a cada conexion del pool; probado con una sentencia de 6 s y limite de 1.5 s.
 3. **Rendimiento lineal por escritura y lectura** (demostrado): p50 de `POST /api/transacciones` pasa de 129 ms a 289 ms entre el
    documento 1 y el 300 del mismo propietario (pendiente 0.64 ms/documento); lecturas del diario/balance de 53 ms a 172 ms.
-Metadatos privados de la revision local retirados; se conserva la exigencia de revision CPA.
+   Extrapolacion historica: ~3 s por escritura con 5 000 documentos, ~6.5 s con 10 000. Conteo privado omitido. Este estimador fue sustituido por OLS en la revision posterior.
 
 3b. **Caida de PostgreSQL reportada como `401 Token inválido`** (`middleware/auth.js`): cualquier error de BD al verificar la sesion se
    respondia como 401; el frontend borra el token y expulsa al usuario ante un 401. Detectado por el escenario nuevo de caida de BD.
@@ -112,7 +112,7 @@ Ejecutadas desde `saas/backend` y `saas/frontend` de esta rama (Node 24.18, Post
 | `test:journal-local` (servidor local, JSON) | **57 grupos, exit 0** (antes fallaba en este equipo: ECONNRESET y 503 vs 500) |
 | `test:integration-local` | Nuevo bloque de idempotencia local aprobado; la suite sigue fallando en el cierre 2025 del seed (fallo preexistente en la copia intacta de Codex, ver B) |
 | Frontend: `npm run build` (index-DVn7L48s.js, 409.98 kB) y `node --test test/*.test.mjs` | build correcto, 22/22 |
-| Archivo de datos reales `backend/.local-data/contapanama-state.json` | SHA-256 `[PRIVATE_STATE_FINGERPRINT_REMOVED]` antes y despues (identico a STATUS.md) |
+| Archivo privado de revision | Preservacion verificada historicamente; huella retirada del documento versionado |
 
 No se ejecutaron las pruebas de navegador (Playwright/Chrome) ni `test:journal-pdf-layout`/`test:accounting-pdf` (requieren Python con pypdf configurado).
 
@@ -171,6 +171,6 @@ Causa: por escritura se cargan todas las transacciones (2 veces), todos los asie
 "Conectar el libro SQL a server.local.js" significaria en la practica reescribir server.local.js sobre `db/index.js`, es decir, convertirlo en
 `server.js`. Lo que si esta listo: **el libro en `server.js` + PostgreSQL** esta preparado para uso de revision con datos de prueba
 (81 grupos de pruebas contra cluster real, incluidas caida de BD, timeout, doble clic, reintento, restauracion e inmutabilidad).
-Metadatos privados de la revision local retirados; se conserva la exigencia de revision CPA.
+Condiciones antes de usarlo con el historial real: (1) migrar el historial privado del JSON a PostgreSQL con revision CPA e
 incorporacion explicita (flujo ya existente `POST /api/contabilidad/libro/incorporar`), (2) resolver el paso 2 de H antes de superar
 algunos miles de documentos por propietario, (3) TLS y mensajes de error de produccion.

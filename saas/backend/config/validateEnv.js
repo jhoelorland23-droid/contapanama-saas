@@ -5,6 +5,14 @@ function hasMinLength(value, minLength) {
   return typeof value === 'string' && value.trim().length >= minLength;
 }
 
+function requireJwtSecret(env = process.env) {
+  const value = env.JWT_SECRET;
+  if (!hasMinLength(value, 32) || /cambia_esto|REEMPLAZAR|<[^>]+>/i.test(value)) {
+    throw new Error('JWT_SECRET requerido: configure al menos 32 caracteres aleatorios en el entorno.');
+  }
+  return value;
+}
+
 function isPublicHttpsUrl(value) {
   return typeof value === 'string' &&
     value.startsWith('https://') &&
@@ -56,6 +64,7 @@ function assertProductionEnv(env = process.env) {
 }
 
 module.exports = {
+  requireJwtSecret,
   assertProductionEnv,
   validateProductionEnv,
 };
