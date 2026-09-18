@@ -27,6 +27,28 @@ module.exports = async ({db,check}) => {
     assert.equal((await db.query('DELETE FROM journal_pending_sources WHERE usuario_id=$1 AND transaccion_id=$2 AND version=$3',[uid,id,revision])).rowCount,0);
     await db.query('UPDATE transacciones SET monto=100 WHERE id=$1',[id]);
     check('a stale verification cannot discard a newer dirty-source version');
+    const sync = async touched => {
+      await db.query('BEGIN');
+      await db.query('SELECT pg_advisory_xact_lock(1129333070,hashtext($1))',[uid]);
+      await repository.syncJournal(db,uid,null,null,touched);
+      await db.query('COMMIT');
+    };
+    incrementalSql.readSubset = originalRead;
+    await sync([id]);
+    await sync([]);
+    incrementalSql.readSubset = async () => { throw new Error('QA injected probe failure'); };
+    await sync([id]);
+    const coverage=(await db.query(`SELECT despues_json FROM audit_events WHERE usuario_id=$1 AND accion='journal_shadow_coverage' ORDER BY created_at,id`,[uid])).rows.map(r=>r.despues_json);
+    assert.equal(coverage.length,4);
+    assert.equal(coverage.filter(r=>r.eligible).length,3);
+    assert.equal(coverage.filter(r=>r.compared).length,2);
+    assert.equal(coverage.filter(r=>r.fell_back_to_full).length,2);
+    assert.equal(coverage.filter(r=>r.divergence_detected).length,1);
+    assert(coverage.some(r=>r.fallback_reason==='no_touched_documents'));
+    assert(coverage.some(r=>r.fallback_reason==='incremental_probe_error'));
+    assert(coverage.every(r=>r.compared !== r.fell_back_to_full));
+    assert.deepEqual((await db.query('SELECT numero FROM asientos_contables WHERE usuario_id=$1',[uid])).rows.map(e=>Number(e.numero)),[1]);
+    check('shadow coverage distinguishes eligible, compared, full fallback and detected divergence without changing the book');
   } catch(e) { await db.query('ROLLBACK');throw e; }
   finally { incrementalSql.readSubset=originalRead;if(previousMode===undefined)delete process.env.CONTAPANAMA_JOURNAL_SYNC;else process.env.CONTAPANAMA_JOURNAL_SYNC=previousMode; }
 };

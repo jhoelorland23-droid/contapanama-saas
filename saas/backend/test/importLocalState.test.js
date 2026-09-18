@@ -14,9 +14,43 @@ test('apply requires source fingerprint, explicit destination, production and re
   const options = { targetOwner: owner, expectedHash: p.report.fingerprint, confirmation: 'IMPORTAR DOCUMENTOS SIN PUBLICAR', targetDatabase: 'contapanama_qa' };
   assert.throws(() => authorize(p, {}, {}), /Faltan/);
   assert.throws(() => authorize(p, { ...options, expectedHash: 'wrong' }, {}), /fingerprint/);
-  assert.throws(() => authorize(p, options, { NODE_ENV: 'production' }), /produccion bloqueada/);
+  assert.throws(() => authorize(p, options, { NODE_ENV: 'test' }), /autorizacion explicita/);
+  const approved = { ...options, authorizeSourceHash: p.report.fingerprint };
+  assert.doesNotThrow(() => authorize(p, approved, { NODE_ENV: 'test' }));
+  assert.throws(() => authorize(p, approved, { NODE_ENV: 'production' }), /produccion bloqueada/);
+  assert.throws(() => authorize(p, { ...approved, targetDatabase: 'another_db' }, {}), /Destino no QA/);
   delete p.source.metadata;
-  assert.throws(() => authorize(p, options, { NODE_ENV: 'test' }), /no es sintetica/);
+  assert.throws(() => authorize(p, options, { NODE_ENV: 'test' }), /autorizacion explicita/);
+});
+
+test('truthy apply values cannot write or connect, even with complete authorizations', async () => {
+  const input = bytes(), preview = inspectSource(input, owner).report;
+  const db = { query: () => { throw new Error('SQL must not be called'); } };
+  for (const apply of ['true', 'false', 1, {}, [], false, undefined]) {
+    const report = await importState(input, { sourceOwner: owner, targetOwner: owner, apply,
+      targetDatabase: 'contapanama_qa', expectedHash: preview.fingerprint,
+      authorizeSourceHash: preview.fingerprint, confirmation: 'IMPORTAR DOCUMENTOS SIN PUBLICAR' }, db);
+    assert.equal(report.mode, 'dry-run');
+  }
+});
+
+test('forged synthetic metadata grants no authorization and is rejected before SQL', async () => {
+  const input = bytes(), fingerprint = inspectSource(input, owner).report.fingerprint;
+  const db = { query: () => { throw new Error('SQL must not be called'); } };
+  await assert.rejects(importState(input, { sourceOwner: owner, targetOwner: owner, apply: true,
+    targetDatabase: 'contapanama_qa', expectedHash: fingerprint,
+    confirmation: 'IMPORTAR DOCUMENTOS SIN PUBLICAR' }, db, { NODE_ENV: 'test' }), /autorizacion explicita/);
+});
+
+test('altered source invalidates both preview fingerprint and separate source approval', async () => {
+  const input = bytes(), previous = inspectSource(input, owner).report.fingerprint;
+  const changed = fixture(); changed.clientes[0].nombre = 'QA altered';
+  const nextBytes = Buffer.from(JSON.stringify(changed)), next = inspectSource(nextBytes, owner).report.fingerprint;
+  const options = { sourceOwner: owner, targetOwner: owner, apply: true, targetDatabase: 'contapanama_qa',
+    expectedHash: previous, authorizeSourceHash: previous, confirmation: 'IMPORTAR DOCUMENTOS SIN PUBLICAR' };
+  const db = { query: () => { throw new Error('SQL must not be called'); } };
+  await assert.rejects(importState(nextBytes, options, db), /fingerprint/);
+  await assert.rejects(importState(nextBytes, { ...options, expectedHash: next }, db), /autorizacion explicita/);
 });
 test('unverified reconciliation, invalid dates and paid-without-evidence prevent import', () => {
   const incomplete=fixture();delete incomplete.clientes[0].tipo;

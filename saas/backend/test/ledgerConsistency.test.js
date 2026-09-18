@@ -13,13 +13,53 @@ test('client scope excludes other documentary totals and exposes out-of-scope dr
   const other = { ...invoice, id: 'other', cliente_id: 'client-2', monto: 200 };
   const entries = numbered(journalPlan([invoice, other]));
   const result = ledgerConsistency([invoice, { ...other, monto: 300 }], entries, { cliente_id: 'client-1', periodo: '2030-05' });
-  assert.equal(result.estado, 'consistente');
+  assert.equal(result.estado, 'consistente_en_filtro');
   assert.equal(result.totales.documentos.ingresos, 1000);
   assert.equal(result.pendientes.length, 0);
   assert.equal(result.pendientes_fuera_del_filtro, 2);
   const detail = ledgerConsistency([invoice, { ...other, monto: 300 }], entries, { cliente_id: 'client-2' });
+  assert.equal(detail.estado, 'divergente');
   assert.equal(detail.pendientes[0].cliente_id, 'client-2');
   assert.equal(detail.pendientes[0].periodo, '2030-05');
+});
+
+test('period and year filters distinguish scoped consistency from global divergence', () => {
+  const other = { ...invoice, id: 'other-period', fecha: '2031-06-05', periodo: '2031-06' };
+  const entries = numbered(journalPlan([invoice, other]));
+  const changed = [invoice, { ...other, monto: 300 }];
+  for (const scope of [{ periodo: '2030-05' }, { anio: '2030' }, { cliente_id: 'client-1', periodo: '2030-05' }]) {
+    const result = ledgerConsistency(changed, entries, scope);
+    assert.equal(result.estado, 'consistente_en_filtro');
+    assert.deepEqual(result.pendientes, []);
+    assert.deepEqual(result.cuentas_divergentes, []);
+    assert.equal(result.pendientes_fuera_del_filtro, 2);
+    assert.equal(result.totales.documentos.ingresos, 1000);
+  }
+  assert.equal(ledgerConsistency(changed, entries, { periodo: '2031-06' }).estado, 'divergente');
+  assert.equal(ledgerConsistency(changed, entries).estado, 'divergente');
+});
+
+test('in-scope differences win over out-of-scope differences', () => {
+  const other = { ...invoice, id: 'other', cliente_id: 'client-2' };
+  const entries = numbered(journalPlan([invoice, other]));
+  const result = ledgerConsistency([{ ...invoice, monto: 500 }, { ...other, monto: 300 }], entries, { cliente_id: 'client-1' });
+  assert.equal(result.estado, 'divergente');
+  assert.equal(result.pendientes.length, 2);
+  assert.equal(result.pendientes_fuera_del_filtro, 2);
+});
+
+test('integrity failure outside client or period filters wins over consistency and divergence', () => {
+  const other = { ...invoice, id: 'tampered', cliente_id: 'client-2', fecha: '2031-06-05', periodo: '2031-06' };
+  const entries = numbered(journalPlan([invoice, other]));
+  entries.find(entry => entry.transaccion_id === other.id).lineas[0].debe = 999;
+  for (const scope of [{ cliente_id: 'client-1' }, { periodo: '2030-05' }, { anio: '2030' }]) {
+    for (const current of [invoice, { ...invoice, monto: 500 }]) {
+      const result = ledgerConsistency([current, other], entries, scope);
+      assert.equal(result.estado, 'integridad_fallida');
+      assert.equal(result.integridad, 'fallida');
+      assert.ok(result.errores.length);
+    }
+  }
 });
 
 test('published book that matches its documents is consistent, with report gaps explained', () => {

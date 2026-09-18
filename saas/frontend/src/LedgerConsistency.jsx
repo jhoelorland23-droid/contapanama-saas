@@ -12,7 +12,7 @@ export default function LedgerConsistency({ api, query, refresh, book, clientNam
       .catch(e => { if (active) setError(e.message); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; controller.abort(); };
   }, [api, query, refresh, attempt]);
-  const status = consistencyStatus(data, error, loading);
+  const status = consistencyStatus(data, error, loading, book?.consistencia);
   const color = status.tone === 'success' ? C.successText : status.tone === 'danger' ? C.dangerText || '#b42318' : C.warningText;
   const cell = { padding: '8px 10px', borderTop: `1px solid ${C.border}`, textAlign: 'left', overflowWrap: 'anywhere' };
   return <section aria-label="Consistencia del libro" style={{ padding: '14px 0', borderBottom: `1px solid ${C.border}`, marginBottom: 16, minWidth: 0 }}>

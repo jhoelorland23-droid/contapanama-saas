@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { spawn } = require('node:child_process');
+const { startService, stop, positiveInteger } = require('../../backend/test/helpers/processHarness');
 const { once } = require('node:events');
 const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
@@ -10,39 +10,53 @@ const { chromium } = require(process.env.CONTAPANAMA_PLAYWRIGHT || 'playwright')
 
 async function run() {
   const sqlMode = process.env.CONTAPANAMA_DISPOSABLE_PG_TEST === '1';
-  let base, child, dataDir, log = '';
+  let base, child, dataDir, localPort, log = '';
+  const startupMs = positiveInteger(process.env.CONTAPANAMA_QA_STARTUP_TIMEOUT_MS, 60000, 'CONTAPANAMA_QA_STARTUP_TIMEOUT_MS');
+  const probeTimeoutMs = positiveInteger(process.env.CONTAPANAMA_QA_PROBE_TIMEOUT_MS, 5000, 'CONTAPANAMA_QA_PROBE_TIMEOUT_MS');
+  const out = sqlMode ? path.resolve(process.env.CONTAPANAMA_POSTGRES_QA_OUTPUT) : path.resolve(process.env.CONTAPANAMA_PAYMENT_BROWSER_QA_OUTPUT || path.join(__dirname, '../../outputs/payment-ledger-qa'));
+  fs.mkdirSync(out, { recursive: true });
   if (sqlMode) {
     const target = new URL(process.env.CONTAPANAMA_PG_QA_API);
     assert.equal(target.protocol, 'http:');
     assert.equal(target.hostname, '127.0.0.1');
     assert.equal(target.pathname, '/');
     base = target.origin;
-    const health = await (await fetch(base + '/health')).json();
-    assert.equal(health.db, 'contapanama_qa');
-    assert.equal(health.env, 'test');
   } else {
     const probe = net.createServer();
     probe.listen(0, '127.0.0.1'); await once(probe, 'listening');
     const port = probe.address().port;
     await new Promise(resolve => probe.close(resolve));
     dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'contapanama-payments-browser-'));
-    child = spawn(process.execPath, [path.resolve(__dirname, '../../backend/server.local.js')], {
-      env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', JWT_SECRET: require('node:crypto').randomBytes(32).toString('hex'),
-        CONTAPANAMA_LOCAL_DATA_DIR: dataDir }, windowsHide: true, stdio: ['ignore','pipe','pipe'],
-    });
-    child.stdout.on('data', d => log += d); child.stderr.on('data', d => log += d);
     base = `http://127.0.0.1:${port}`;
+    // Spawn inside try/finally below so a failed startup still cleans up fixtures.
+    localPort = port;
   }
   let browser, page;
   let shuttingDown = false;
   const routingErrors = [];
   const inFlightRoutes = new Set();
-  const out = sqlMode ? path.resolve(process.env.CONTAPANAMA_POSTGRES_QA_OUTPUT) : path.resolve(process.env.CONTAPANAMA_PAYMENT_BROWSER_QA_OUTPUT || path.join(__dirname, '../../outputs/payment-ledger-qa'));
-  fs.mkdirSync(out, { recursive: true });
   try {
+    if (!sqlMode) {
+      child = await startService({ command: process.execPath, args: [path.resolve(__dirname, '../../backend/server.local.js')],
+        options: { env: { ...process.env, PORT: String(localPort), HOST: '127.0.0.1', JWT_SECRET: require('node:crypto').randomBytes(32).toString('hex'),
+          CONTAPANAMA_LOCAL_DATA_DIR: dataDir } }, timeoutMs: startupMs, probeTimeoutMs,
+        attempts: positiveInteger(process.env.CONTAPANAMA_QA_STARTUP_ATTEMPTS, 3, 'CONTAPANAMA_QA_STARTUP_ATTEMPTS'),
+        onChild: c => { child = c; },
+        onOutput: (text, stream) => { log += text; fs.appendFileSync(path.join(out, `local-api.${stream}.log`), text); },
+        probe: async signal => (await fetch(base + '/health', { signal })).ok,
+      });
+    }
     let ready = false;
-    for (let i = 0; i < 100; i++) {
-      try { ready = (await fetch(base+'/health')).ok; if (ready) break; } catch {}
+    const deadline = Date.now() + startupMs;
+    while (Date.now() < deadline) {
+      try {
+        const response = await fetch(base + '/health', { signal: AbortSignal.timeout(Math.max(1, Math.min(probeTimeoutMs, deadline - Date.now()))) });
+        if (response.ok) {
+          const health = await response.json();
+          ready = !sqlMode || (health.status === 'ok' && health.db === 'contapanama_qa' && health.env === 'test');
+          if (ready) break;
+        }
+      } catch {}
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     assert(ready, log);
@@ -176,7 +190,7 @@ async function run() {
     if (page && !page.isClosed()) await page.goto('about:blank', { timeout: 10000 });
     await Promise.all([...inFlightRoutes]);
     if (browser) await browser.close();
-    if (child && child.exitCode === null) { const done = once(child, 'exit'); child.kill(); await done; }
+    await stop(child);
     if (dataDir) {
       const resolved = path.resolve(dataDir);
       if (path.dirname(resolved) !== path.resolve(os.tmpdir()) || !path.basename(resolved).startsWith('contapanama-payments-browser-')) throw new Error('Unexpected test directory');

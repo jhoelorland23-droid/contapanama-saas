@@ -163,6 +163,8 @@ async function syncJournal(db, uid, assertOpen, correction, touched = []) {
   const pending = pendingRows.map(r => r.transaccion_id);
   // Unknown or out-of-band writes retain the full CPA correction gate.
   const eligible = touched.length > 0 && pending.every(id => touched.includes(id));
+  const coverage = { eligible, compared: false, fell_back_to_full: !eligible, divergence_detected: false,
+    fallback_reason: eligible ? null : touched.length ? 'pending_outside_touched' : 'no_touched_documents' };
   let subset, incremental, existing, entries;
   if (mode !== 'full' && eligible) {
     if (mode === 'shadow') await db.query('SAVEPOINT shadow_probe');
@@ -176,6 +178,8 @@ async function syncJournal(db, uid, assertOpen, correction, touched = []) {
       await db.query('ROLLBACK TO SAVEPOINT shadow_probe');
       await db.query('RELEASE SAVEPOINT shadow_probe');
       subset = null;
+      coverage.fell_back_to_full = true;
+      coverage.fallback_reason = 'incremental_probe_error';
       const detail = { touched, error: error.message, persisted_algorithm: 'full' };
       console.error(JSON.stringify({event:'journal_shadow_error',usuario_id:uid,...detail}));
       await db.query(`INSERT INTO audit_events(usuario_id,accion,objeto_tipo,objeto_id,despues_json)
@@ -190,6 +194,8 @@ async function syncJournal(db, uid, assertOpen, correction, touched = []) {
       const fullFolios = {};
       for (const e of existing) fullFolios[e.cliente_id||''] = Math.max(fullFolios[e.cliente_id||'']||0,e.numero_libro||0);
       const comparison = incrementalSql.comparePlans(entries, incremental, Math.max(0,...existing.map(e=>e.numero)), subset.max, fullFolios, subset.folioMax);
+      coverage.compared = true;
+      coverage.divergence_detected = !comparison.equal;
       if (!comparison.equal) console.error(JSON.stringify({ event: 'journal_shadow_divergence', usuario_id: uid, ...comparison }));
       await db.query(`INSERT INTO audit_events(usuario_id,accion,objeto_tipo,objeto_id,despues_json)
         VALUES($1,$2,'journal_sync',$1,$3)`, [uid, comparison.equal ? 'journal_shadow_match' : 'journal_shadow_divergence', comparison.equal
@@ -204,6 +210,10 @@ async function syncJournal(db, uid, assertOpen, correction, touched = []) {
   await appendEntries(db, uid, entries, existing, assertOpen, subset);
   await db.query(`DELETE FROM journal_pending_sources p USING unnest($2::uuid[],$3::bigint[]) AS verified(id,version)
     WHERE p.usuario_id=$1 AND p.transaccion_id=verified.id AND p.version=verified.version`, [uid,pending,pendingRows.map(r=>r.version)]);
+  // Transactional coverage counts committed syncs of incorporated books, not failed requests.
+  // Persisting full after a successful comparison is normal shadow behavior, not a fallback.
+  if (mode === 'shadow') await db.query(`INSERT INTO audit_events(usuario_id,accion,objeto_tipo,objeto_id,despues_json)
+    VALUES($1,'journal_shadow_coverage','journal_sync',$1,$2)`, [uid, coverage]);
 }
 
 async function previewBook(uid, db = { query }) {

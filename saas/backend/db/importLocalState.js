@@ -75,15 +75,16 @@ function authorize(plan, options, env) {
   if (plan.report.inconsistencias.length) throw new Error('La fuente tiene inconsistencias; importacion rechazada.');
   if (!uuid(options.targetOwner) || options.expectedHash !== plan.report.fingerprint || options.confirmation !== 'IMPORTAR DOCUMENTOS SIN PUBLICAR') throw new Error('Faltan propietario, fingerprint o confirmacion explicita.');
   if (!options.targetDatabase) throw new Error('Indique la base destino explicitamente.');
-  const synthetic = plan.source.metadata?.kind === 'contapanama-synthetic-v1';
-  if (!synthetic && options.authorizeRealCopy !== plan.report.fingerprint) throw new Error('La copia no es sintetica: requiere autorizacion separada vinculada al hash.');
+  // Source metadata is untrusted; fixtures require the same explicit approval as any copy.
+  const sourceAuthorization = options.authorizeSourceHash ?? options.authorizeRealCopy;
+  if (sourceAuthorization !== plan.report.fingerprint) throw new Error('Toda fuente requiere autorizacion explicita vinculada al hash.');
   if (env.NODE_ENV === 'production' && env.CONTAPANAMA_IMPORT_PRODUCTION_AUTH !== `${options.targetDatabase}:${plan.report.fingerprint}`) throw new Error('Importacion en produccion bloqueada.');
   if (!['contapanama_qa','contapanama_review'].includes(options.targetDatabase) && env.CONTAPANAMA_IMPORT_TARGET_AUTH !== `${options.targetDatabase}:${plan.report.fingerprint}`) throw new Error('Destino no QA: requiere autorizacion separada vinculada a base y hash.');
 }
 async function importState(bytes, options = {}, db, env = process.env) {
   options = { ...options, targetOwner: typeof options.targetOwner === 'string' ? options.targetOwner.toLowerCase() : options.targetOwner };
   const plan = inspectSource(bytes, options.sourceOwner);
-  if (!options.apply) return plan.report;
+  if (options.apply !== true) return plan.report;
   authorize(plan, options, env);
   if (!db) throw new Error('Conexion explicita requerida para aplicar.');
   await db.query('BEGIN');
@@ -123,7 +124,7 @@ async function main() {
   if (typeof args.source !== 'string') throw new Error('Use --source=<copia-explicita.json> --source-owner=<uuid>; dry-run por defecto.');
   const bytes = fs.readFileSync(args.source);
   const options = { sourceOwner: args['source-owner'], targetOwner: args['target-owner'], expectedHash: args['expect-source-hash'], targetDatabase: args['target-database'],
-    confirmation: args.confirm, authorizeRealCopy: args['authorize-real-copy'], apply: args.apply === true };
+    confirmation: args.confirm, authorizeSourceHash: args['authorize-source-hash'], authorizeRealCopy: args['authorize-real-copy'], apply: args.apply === true };
   const preview = await importState(bytes, { sourceOwner: options.sourceOwner });
   console.log(JSON.stringify(preview, null, 2));
   if (!options.apply) return;

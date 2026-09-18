@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
-const { spawn } = require('node:child_process');
+const { startService, stop: stopChild, positiveInteger } = require('./helpers/processHarness');
+const { fileMetadata } = require('./helpers/fileMetadata');
 const { once } = require('node:events');
 const { randomUUID, createHash } = require('node:crypto');
 const fs = require('node:fs');
@@ -12,14 +13,17 @@ const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'contapanama-local-journal-')
 const stateFile = path.join(temp, 'contapanama-state.json');
 const reviewFile = path.join(root, '.local-data/contapanama-state.json');
 const digest = file => fs.existsSync(file) ? createHash('sha256').update(fs.readFileSync(file)).digest('hex') : null;
-const reviewBefore = digest(reviewFile);
+const reviewBefore = fileMetadata(reviewFile);
+const logDirectory = process.env.CONTAPANAMA_LOCAL_JOURNAL_QA_OUTPUT || fs.mkdtempSync(path.join(os.tmpdir(), 'contapanama-local-journal-logs-'));
+fs.mkdirSync(logDirectory, { recursive: true });
+console.log(`Local journal QA logs: ${logDirectory}`);
 const report = { started_at: new Date().toISOString(), checks: [] };
 let server, base, token = '', output = '';
 const check = name => { report.checks.push(name); console.log('PASS ' + name); };
 const readDisk = () => JSON.parse(fs.readFileSync(stateFile, 'utf8'));
 
 async function stop() {
-  if (server && server.exitCode === null) { const done = once(server, 'exit'); server.kill(); await done; }
+  await stopChild(server);
 }
 async function start() {
   const probe = net.createServer();
@@ -28,19 +32,17 @@ async function start() {
   const port = probe.address().port;
   await new Promise(resolve => probe.close(resolve));
   base = `http://127.0.0.1:${port}`;
-  server = spawn(process.execPath, [path.join(root, 'server.local.js')], {
-    cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
+  server = await startService({ command: process.execPath, args: [path.join(root, 'server.local.js')],
+    options: { cwd: root,
     env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', JWT_SECRET: require('node:crypto').randomBytes(32).toString('hex'),
-      CONTAPANAMA_LOCAL_DATA_DIR: temp, CONTAPANAMA_LOCAL_PERSISTENCE: 'on' },
+      CONTAPANAMA_LOCAL_DATA_DIR: temp, CONTAPANAMA_LOCAL_PERSISTENCE: 'on' } },
+    timeoutMs: positiveInteger(process.env.CONTAPANAMA_QA_STARTUP_TIMEOUT_MS, 60000, 'CONTAPANAMA_QA_STARTUP_TIMEOUT_MS'),
+    attempts: positiveInteger(process.env.CONTAPANAMA_QA_STARTUP_ATTEMPTS, 3, 'CONTAPANAMA_QA_STARTUP_ATTEMPTS'),
+    probeTimeoutMs: positiveInteger(process.env.CONTAPANAMA_QA_PROBE_TIMEOUT_MS, 5000, 'CONTAPANAMA_QA_PROBE_TIMEOUT_MS'),
+    onChild: child => { server = child; },
+    onOutput: (text, stream) => { output += text; fs.appendFileSync(path.join(logDirectory, `api.${stream}.log`), text); },
+    probe: async signal => (await fetch(base + '/health', { signal })).ok,
   });
-  server.stdout.on('data', part => { output += part; });
-  server.stderr.on('data', part => { output += part; });
-  for (let i = 0; i < 150; i++) {
-    try { if ((await fetch(base + '/health')).ok) return; } catch {}
-    if (server.exitCode !== null) throw new Error(output);
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-  throw new Error('Local QA server did not start: ' + output);
 }
 // Synchronous PDF checks block this process past the API keep-alive timeout; a reused idle socket then resets.
 const noKeepAlive = { Connection: 'close' };
@@ -257,8 +259,7 @@ async function main() {
   assert.deepEqual(await (await requestRaw(legacyCheck.endpoint, { headers: legacyCheck.headers })).json(), legacyCheck.expected);
   check('legacy client book identifiers and folios survive local backend restart');
   assert(readDisk().libros_contables.some(b => b.usuario_id === user.id));
-  assert.equal(digest(reviewFile), reviewBefore);
-  check('new books initialize on first document; foreign clients and journals remain isolated; review data untouched');
+  check('new books initialize on first document; foreign clients and journals remain isolated');
 }
 
 (async () => {
@@ -266,11 +267,15 @@ async function main() {
   catch (error) { report.passed = false; report.error = error.stack; console.error(error.stack); console.error(output.slice(-2500)); process.exitCode = 1; }
   finally {
     await stop();
+    try {
+      assert.deepEqual(fileMetadata(reviewFile), reviewBefore);
+      check('review file metadata unchanged (lstat only; not a content fingerprint)');
+    } catch (error) { report.passed = false; report.metadata_error = error.message; process.exitCode = 1; }
     assert.equal(path.dirname(path.resolve(temp)), path.resolve(os.tmpdir()));
     assert(path.basename(temp).startsWith('contapanama-local-journal-'));
     fs.rmSync(temp, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     report.finished_at = new Date().toISOString();
-    const directory = process.env.CONTAPANAMA_LOCAL_JOURNAL_QA_OUTPUT;
+    const directory = logDirectory;
     if (directory) { fs.mkdirSync(directory, { recursive: true }); fs.writeFileSync(path.join(directory, 'results.json'), JSON.stringify(report, null, 2)); }
   }
 })();

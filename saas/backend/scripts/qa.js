@@ -7,7 +7,7 @@
 //   npm run qa -- --only=unit,postgres
 //   npm run qa -- --skip=postgres,frontend-build
 //   CONTAPANAMA_QA_LOG_DIR=<dir> keeps the full log of every suite
-const { spawn } = require('node:child_process');
+const { runCaptured, positiveInteger } = require('../test/helpers/processHarness');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -23,6 +23,7 @@ const nodeTest = files => [process.execPath, ['--test', ...files]];
 const nodeRun = file => [process.execPath, [file]];
 
 const suites = [
+  { id: 'unit-harness', group: 'unit', cwd: backend, run: nodeTest(['test/benchmarkStatistics.test.js', 'test/processHarness.test.js', 'test/benchmarkRunner.test.js']) },
   { id: 'unit-journal', group: 'ledger', cwd: backend, run: nodeTest(['test/journalLedger.test.js', 'test/journalReport.test.js', 'test/ledgerConsistency.test.js']) },
   { id: 'unit-sync-contract', group: 'ledger', cwd: backend, run: nodeTest(['test/journalSyncContract.test.js', 'test/journalShadow.test.js']) },
   { id: 'unit-corrections', group: 'ledger', cwd: backend, run: nodeTest(['test/documentCorrection.test.js', 'test/entityBooks.test.js']) },
@@ -63,16 +64,9 @@ function pythonWithPypdf() {
 }
 
 function runSuite(suite) {
-  return new Promise(resolve => {
-    const [command, commandArgs] = suite.run;
-    const child = spawn(command, commandArgs, { cwd: suite.cwd, env: process.env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-    let output = '';
-    child.stdout.on('data', part => { output += part; });
-    child.stderr.on('data', part => { output += part; });
-    const timer = setTimeout(() => { child.kill(); output += '\n[qa] timeout'; }, suite.timeoutMs || 5 * 60_000);
-    child.on('error', error => { clearTimeout(timer); resolve({ code: 1, output: output + error.stack }); });
-    child.on('exit', code => { clearTimeout(timer); resolve({ code, output }); });
-  });
+  const [command, commandArgs] = suite.run;
+  return runCaptured(command, commandArgs, { cwd: suite.cwd, env: process.env,
+    timeoutMs: positiveInteger(process.env.CONTAPANAMA_QA_TIMEOUT_MS, suite.timeoutMs || 5 * 60_000, 'CONTAPANAMA_QA_TIMEOUT_MS') });
 }
 
 (async () => {
@@ -85,8 +79,12 @@ function runSuite(suite) {
     if (prerequisite !== true) { results.push({ suite: suite.id, grupo: suite.group, estado: 'SKIPPED', detalle: prerequisite }); console.log(`SKIPPED ${suite.id}: ${prerequisite}`); continue; }
     process.stdout.write(`RUN     ${suite.id} ... `);
     const started = Date.now();
-    const { code, output } = await runSuite(suite);
+    const result = await runSuite(suite);
+    const { code } = result;
+    const output = result.output + (result.timedOut ? '\n[qa] timeout' : '') + (result.error ? `\n${result.error.stack}` : '');
     fs.writeFileSync(path.join(logDir, `${suite.id}.log`), output);
+    fs.writeFileSync(path.join(logDir, `${suite.id}.stdout.log`), result.stdout);
+    fs.writeFileSync(path.join(logDir, `${suite.id}.stderr.log`), result.stderr);
     const seconds = ((Date.now() - started) / 1000).toFixed(1);
     const passLines = (output.match(/^PASS /gm) || []).length;
     const nodeTestPass = /^ℹ pass (\d+)/m.exec(output)?.[1];

@@ -1,5 +1,4 @@
-const { randomUUID } = require('node:crypto');
-const { folioHash } = require('./entityBooks');
+const { folioHash, allocateFolios } = require('./entityBooks');
 const { verifyEntry, hash } = require('./journalLedger');
 const { verifyBankDimensions } = require('./bankPosting');
 const { fail } = require('./paymentLedger');
@@ -42,24 +41,25 @@ async function guardFolios(db, uid) {
     (SELECT 1 FROM folios_libro f WHERE f.asiento_id=a.id) LIMIT 1`, [uid])).rowCount) fail('Revise y asigne los libros por cliente antes de publicar mas asientos.', 409);
 }
 async function appendFolios(db, uid, posted, incorporationId) {
-  const books = new Map();
+  const books = [], counters = new Map(), clients = new Set();
   for (const entry of posted) {
     const key = entry.cliente_id || '';
-    let book = books.get(key);
-    if (!book) {
-      book = (await db.query('SELECT * FROM libros_entidad WHERE usuario_id=$1 AND cliente_id IS NOT DISTINCT FROM $2::uuid', [uid, entry.cliente_id])).rows[0];
-      if (!book) {
-        book = { id: randomUUID(), usuario_id: uid, cliente_id: entry.cliente_id || null, incorporacion_id: incorporationId, created_at: new Date().toISOString() };
-        await db.query('INSERT INTO libros_entidad(id,usuario_id,cliente_id,incorporacion_id,created_at) VALUES($1,$2,$3,$4,$5)', [book.id,uid,book.cliente_id,incorporationId,book.created_at]);
-        await db.query(`INSERT INTO audit_events(usuario_id,cliente_id,accion,objeto_tipo,objeto_id,despues_json)
-          VALUES($1,$2,'libro_entidad_creado','libro_entidad',$3,$4)`, [uid,book.cliente_id,book.id,book]);
-      }
-      book.last = Number((await db.query('SELECT numero FROM folios_libro WHERE libro_entidad_id=$1 ORDER BY numero DESC LIMIT 1', [book.id])).rows[0]?.numero || 0);
-      books.set(key, book);
+    if (clients.has(key)) continue;
+    clients.add(key);
+    const book = (await db.query('SELECT * FROM libros_entidad WHERE usuario_id=$1 AND cliente_id IS NOT DISTINCT FROM $2::uuid', [uid, entry.cliente_id || null])).rows[0];
+    if (book) {
+      books.push(book);
+      counters.set(book.id, Number((await db.query('SELECT numero FROM folios_libro WHERE libro_entidad_id=$1 ORDER BY numero DESC LIMIT 1', [book.id])).rows[0]?.numero || 0));
     }
-    const f = { asiento_id: entry.id, usuario_id: uid, libro_entidad_id: book.id, numero: ++book.last };
-    if (!Number.isSafeInteger(f.numero)) fail('El libro supera la numeracion admitida.', 409);
-    await db.query('INSERT INTO folios_libro(asiento_id,usuario_id,libro_entidad_id,numero,folio_hash) VALUES($1,$2,$3,$4,$5)', [entry.id,uid,book.id,f.numero,folioHash(f,entry)]);
+  }
+  const plan = allocateFolios(uid, posted, books, counters, incorporationId);
+  for (const book of plan.books) {
+    await db.query('INSERT INTO libros_entidad(id,usuario_id,cliente_id,incorporacion_id,created_at) VALUES($1,$2,$3,$4,$5)', [book.id,uid,book.cliente_id,incorporationId,book.created_at]);
+    await db.query(`INSERT INTO audit_events(usuario_id,cliente_id,accion,objeto_tipo,objeto_id,despues_json)
+      VALUES($1,$2,'libro_entidad_creado','libro_entidad',$3,$4)`, [uid,book.cliente_id,book.id,book]);
+  }
+  for (const f of plan.folios) {
+    await db.query('INSERT INTO folios_libro(asiento_id,usuario_id,libro_entidad_id,numero,folio_hash) VALUES($1,$2,$3,$4,$5)', [f.asiento_id,uid,f.libro_entidad_id,f.numero,f.folio_hash]);
   }
 }
 function normalizedPlan(entries, max, folioMax = {}) {

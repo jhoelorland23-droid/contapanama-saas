@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
+const { positiveInteger } = require('../../backend/test/helpers/processHarness');
 module.exports = async ({ page, api, client, period, out }) => {
   const checks = ['login','pago parcial','reintento de pago sin duplicados','conciliacion bancaria','anulacion de cobro'];
   await page.setViewportSize({width:1440,height:1050});
@@ -35,7 +36,9 @@ module.exports = async ({ page, api, client, period, out }) => {
   assert(process.send,'Restart evidence requires the disposable PostgreSQL parent, not a simulated API');
   await new Promise((resolve,reject)=>{
     const requestId='restart-ledger-browser';
-    const timer=setTimeout(()=>{process.off('message',receive);reject(new Error('API restart timed out'));},60000);
+    const startupMs = positiveInteger(process.env.CONTAPANAMA_QA_STARTUP_TIMEOUT_MS, 60000, 'CONTAPANAMA_QA_STARTUP_TIMEOUT_MS');
+    const attempts = positiveInteger(process.env.CONTAPANAMA_QA_STARTUP_ATTEMPTS, 3, 'CONTAPANAMA_QA_STARTUP_ATTEMPTS');
+    const timer=setTimeout(()=>{process.off('message',receive);reject(new Error('API restart timed out'));},startupMs * attempts + 20000);
     function receive(message){if(message.requestId===requestId){clearTimeout(timer);process.off('message',receive);message.ok?resolve():reject(new Error(message.error));}}
     process.on('message',receive);process.send({action:'restart-api',requestId});
   });
@@ -46,6 +49,7 @@ module.exports = async ({ page, api, client, period, out }) => {
   await consistency.getByText('CONSISTENTE',{exact:true}).waitFor();
   assert.deepEqual(await api(endpoint),before);
   checks.push('reinicio real de API','persistencia despues del reinicio','desktop y mobile');
-  fs.writeFileSync(path.join(out,'browser-results.json'),JSON.stringify({passed:true,engine:'server.js + PostgreSQL',checks},null,2));
+  const uiChecks = await require('./ledgerConsistency.browser.scenario.cjs')({ page, out });
+  fs.writeFileSync(path.join(out,'browser-results.json'),JSON.stringify({passed:true,engine:'server.js + PostgreSQL',checks,ui_fixture_checks:uiChecks},null,2));
   for(const c of checks)console.log('PASS browser SQL: '+c);
 };

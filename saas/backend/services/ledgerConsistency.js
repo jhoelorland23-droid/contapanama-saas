@@ -75,6 +75,7 @@ function ledgerConsistency(transactions, entries, scope = {}) {
       gastos_explicados_por_itbms_no_deducible: amount(cents(libro.gastos) - cents(documentos.gastos)) === documentos.itbms_no_deducible } };
   if (result.integridad !== 'verificada') result.estado = 'integridad_fallida';
   else if (result.pendientes.length || result.cuentas_divergentes.length) result.estado = 'divergente';
+  else if (result.pendientes_fuera_del_filtro) result.estado = 'consistente_en_filtro';
   result.asientos_publicados = entries.length;
   result.documentos = transactions.filter(isRegisteredTransaction).length;
   return result;

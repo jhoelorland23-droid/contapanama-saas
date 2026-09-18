@@ -59,8 +59,19 @@ function registryPreview(uid, entries, books, folios, clients = []) {
 
 function planRegistry(uid, entries, books, folios, incorporationId) {
   const index = inspectRegistry(uid, entries, books, folios);
-  const pendingBooks = [], pendingFolios = [];
   const counters = new Map(books.map(book => [book.id, folios.filter(folio => folio.libro_entidad_id === book.id).length]));
+  return allocateFolios(uid, index.missing, books, counters, incorporationId);
+}
+
+// Callers supply validated history (full registry or SQL maxima under the owner lock).
+function allocateFolios(uid, entries, books, lastNumbers, incorporationId) {
+  const index = inspectRegistry(uid, entries, books, []);
+  const counters = new Map(lastNumbers);
+  for (const book of books) {
+    const last = counters.get(book.id);
+    if (!Number.isSafeInteger(last) || last < 0) fail('El libro supera la numeracion admitida.', 409);
+  }
+  const pendingBooks = [], pendingFolios = [];
   const createdAt = new Date().toISOString();
   for (const entry of [...index.missing].sort((a, b) => a.numero - b.numero)) {
     let book = index.byClient.get(key(entry.cliente_id));
@@ -88,4 +99,4 @@ function attachFolios(uid, entries, books, folios) {
   });
 }
 
-module.exports = { inspectRegistry, registryPreview, planRegistry, attachFolios, folioHash };
+module.exports = { inspectRegistry, registryPreview, planRegistry, allocateFolios, attachFolios, folioHash };

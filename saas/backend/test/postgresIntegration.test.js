@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
-const { spawn } = require('node:child_process');
-const { createHash, randomBytes } = require('node:crypto');
+const { randomBytes } = require('node:crypto');
+const { startService, stop, runCaptured, positiveInteger } = require('./helpers/processHarness');
+const { fileMetadata } = require('./helpers/fileMetadata');
 const fs = require('node:fs');
 const net = require('node:net');
 const os = require('node:os');
@@ -9,19 +10,31 @@ const { Client } = require('pg');
 
 // Never use DATABASE_URL or an existing cluster: this test owns its entire database.
 const backend = path.resolve(__dirname, '..');
+const reviewFile = path.join(backend, '.local-data', 'contapanama-state.json');
+const reviewMetadataBefore = fileMetadata(reviewFile);
 const pgBin = process.env.CONTAPANAMA_PG_BIN;
 const exe = name => path.join(pgBin, `${name}${process.platform === 'win32' ? '.exe' : ''}`);
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const password = randomBytes(24).toString('hex');
 const jwtSecret = randomBytes(32).toString('hex');
 const clients = new Set();
 const report = { started_at: new Date().toISOString(), checks: [] };
 let temp, dataDir, pgPort, apiPort, api, baseUrl, web;
 let apiOutput = '';
-const reviewFile = path.join(backend, '.local-data', 'contapanama-state.json');
-const fingerprint = () => fs.existsSync(reviewFile) ? createHash('sha256').update(fs.readFileSync(reviewFile)).digest('hex') : null;
-const beforeReview = fingerprint();
+const outputDirectory = process.env.CONTAPANAMA_POSTGRES_QA_OUTPUT
+  ? path.resolve(process.env.CONTAPANAMA_POSTGRES_QA_OUTPUT)
+  : fs.mkdtempSync(path.join(os.tmpdir(), 'contapanama-pg-logs-'));
+fs.mkdirSync(outputDirectory, { recursive: true });
+console.log(`PostgreSQL QA logs: ${outputDirectory}`);
 const clean = value => String(value).replaceAll(password, '[redacted]').replace(/Bearer [A-Za-z0-9_.-]+/g, 'Bearer [redacted]');
+const logChild = label => (text, stream) => {
+  fs.appendFileSync(path.join(outputDirectory, `${label}.${stream}.log`), clean(text));
+  if (label === 'api') apiOutput += text;
+};
+const startupOptions = () => ({
+  timeoutMs: positiveInteger(process.env.CONTAPANAMA_QA_STARTUP_TIMEOUT_MS, 60000, 'CONTAPANAMA_QA_STARTUP_TIMEOUT_MS'),
+  attempts: positiveInteger(process.env.CONTAPANAMA_QA_STARTUP_ATTEMPTS, 3, 'CONTAPANAMA_QA_STARTUP_ATTEMPTS'),
+  probeTimeoutMs: positiveInteger(process.env.CONTAPANAMA_QA_PROBE_TIMEOUT_MS, 5000, 'CONTAPANAMA_QA_PROBE_TIMEOUT_MS'),
+});
 
 function check(name, evidence = {}) {
   report.checks.push({ name, ...evidence });
@@ -48,30 +61,20 @@ function environment(database = 'contapanama_qa') {
     TZ: 'America/Panama', CONTAPANAMA_INTEGRATION_TOKEN: randomBytes(32).toString('hex') };
 }
 
-function run(command, args, options = {}) {
-  return new Promise((resolve, reject) => {
-    const { restartApi, ...spawnOptions } = options;
-    const child = spawn(command, args, { cwd: backend, env: environment(), windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'], ...spawnOptions });
-    if (restartApi) child.on('message', async message => {
+async function run(command, args, options = {}) {
+  const { restartApi, stdio, timeoutMs, ...spawnOptions } = options;
+  const result = await runCaptured(command, args, { cwd: backend, env: environment(), ...spawnOptions,
+    timeoutMs: timeoutMs || positiveInteger(process.env.CONTAPANAMA_QA_CHILD_TIMEOUT_MS, restartApi ? 600000 : 90000, 'CONTAPANAMA_QA_CHILD_TIMEOUT_MS'),
+    inheritedPipeGraceMs: path.basename(command).startsWith('pg_ctl') ? 1000 : undefined,
+    onOutput: logChild('commands'), ipc: Boolean(restartApi),
+    onChild: child => { if (restartApi) child.on('message', async message => {
       if (message?.action !== 'restart-api') return;
       try { await restartApi(); child.send({ requestId: message.requestId, ok: true }); }
       catch (e) { child.send({ requestId: message.requestId, error: e.message }); }
-    });
-    let output = '', timedOut = false;
-    child.stdout.on('data', part => { output += part; });
-    child.stderr.on('data', part => { output += part; });
-    const timer = setTimeout(() => { timedOut = true; child.kill(); }, restartApi ? 240000 : 90000);
-    child.on('error', error => { clearTimeout(timer); reject(error); });
-    child.on('exit', code => {
-      clearTimeout(timer);
-      // pg_ctl can leave inherited pipe handles open in its Windows server child.
-      child.stdout.destroy();
-      child.stderr.destroy();
-      if (code === 0 && !timedOut) resolve(output);
-      else reject(new Error(`${path.basename(command)} failed (${code}${timedOut ? ', timeout' : ''}): ${clean(output)}`));
-    });
+    }); },
   });
+  if (result.code !== 0) throw new Error(`${path.basename(command)} failed (${result.code}${result.timedOut ? ', timeout' : ''}): ${clean(result.error?.stack || '')}\n${clean(result.output)}`);
+  return result.output;
 }
 
 async function connect(database = 'contapanama_qa') {
@@ -96,41 +99,54 @@ async function request(url, options) {
 }
 
 async function stopApi() {
-  if (!api || api.exitCode !== null || api.signalCode !== null) return;
-  const child = api;
-  await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('Test API did not stop')), 15000);
-    child.once('exit', () => { clearTimeout(timer); resolve(); });
-    child.kill();
-  });
+  await stop(api);
 }
 
 async function startApi(database = 'contapanama_qa', timezone = 'America/Panama', extraEnv = {}) {
-  apiOutput = '';
-  api = spawn(process.execPath, [path.join(backend, 'server.js')], {
-    cwd: backend, env: { ...environment(database), TZ: timezone, ...extraEnv }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
+  api = await startService({ command: process.execPath, args: [path.join(backend, 'server.js')],
+    options: { cwd: backend, env: { ...environment(database), TZ: timezone, ...extraEnv } },
+    ...startupOptions(), onOutput: logChild('api'), onChild: child => { api = child; },
+    probe: async signal => {
+      const response = await fetch(`${baseUrl}/health`, { signal, headers: { Connection: 'close' } });
+      if (!response.ok) return false;
+      const health = await response.json();
+      return health.status === 'ok' && health.db === database && health.env === 'test';
+    },
   });
-  api.stdout.on('data', part => { apiOutput += part; });
-  api.stderr.on('data', part => { apiOutput += part; });
-  let startError;
-  api.on('error', error => { startError = error; });
-  const deadline = Date.now() + 30000;
-  while (Date.now() < deadline) {
-    if (startError) throw startError;
-    if (api.exitCode !== null) throw new Error(`SQL API exited: ${clean(apiOutput)}`);
-    try {
-      const health = await request('/health');
-      assert.equal(health.db, database);
-      return;
-    } catch (_) { await delay(150); }
-  }
-  throw new Error(`SQL API did not start: ${clean(apiOutput)}`);
 }
 
 const clusterLog = () => path.join(temp, 'postgres.log');
 const clusterOptions = () => `-h 127.0.0.1 -p ${pgPort} -c timezone=America/Panama`;
-const startCluster = () => run(exe('pg_ctl'), ['-D', dataDir, '-l', clusterLog(), '-o', clusterOptions(), '-w', '-t', '30', 'start']);
-const stopCluster = () => run(exe('pg_ctl'), ['-D', dataDir, '-w', '-t', '30', '-m', 'fast', 'stop']);
+const clusterTimeout = () => Math.ceil(startupOptions().timeoutMs / 1000);
+async function startCluster() {
+  const { attempts, timeoutMs, probeTimeoutMs } = startupOptions();
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await run(exe('pg_ctl'), ['-D', dataDir, '-l', clusterLog(), '-o', clusterOptions(), '-w', '-t', String(clusterTimeout()), 'start'], { timeoutMs: timeoutMs + 10000 });
+    } catch (error) {
+      const status = await runCaptured(exe('pg_ctl'), ['-D', dataDir, 'status'], {
+        cwd: backend, env: environment(), timeoutMs: probeTimeoutMs, onOutput: logChild('commands'), inheritedPipeGraceMs: 1000,
+      });
+      if (status.code === 0) {
+        // A timed-out pg_ctl can leave its postmaster starting. Never start another.
+        const deadline = Date.now() + timeoutMs;
+        while (Date.now() < deadline) {
+          const client = new Client({ connectionString: environment('postgres').DATABASE_URL,
+            connectionTimeoutMillis: Math.max(1, Math.min(probeTimeoutMs, deadline - Date.now())), query_timeout: probeTimeoutMs });
+          client.on('error', () => {});
+          try { await client.connect(); await client.query('SELECT 1'); return; }
+          catch (_) { await new Promise(resolve => setTimeout(resolve, 150)); }
+          finally { await client.end().catch(() => {}); }
+        }
+        throw error;
+      }
+      // pg_ctl status=3 explicitly means no server. Unknown status must fail closed.
+      if (status.code !== 3 || attempt === attempts) throw error;
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+  }
+}
+const stopCluster = () => run(exe('pg_ctl'), ['-D', dataDir, '-w', '-t', String(clusterTimeout()), '-m', 'fast', 'stop'], { timeoutMs: startupOptions().timeoutMs + 10000 });
 
 async function snapshot(client) {
   const { rows: tables } = await client.query("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename");
@@ -176,6 +192,11 @@ async function main() {
   await run(process.execPath, ['db/migrate.js', '--apply']);
   let db = await connect();
   check('schema migration on empty database');
+  if (process.env.CONTAPANAMA_PG_BENCH_ONLY === '1') {
+    await startApi();
+    report.benchmark = await require('./helpers/journalBenchmark')({ request, check, documents: Number(process.env.CONTAPANAMA_PG_BENCH) });
+    return;
+  }
   await run(process.execPath, ['db/migrate.js', '--apply'], { env: environment('contapanama_upgrade') });
   const upgrade = await connect('contapanama_upgrade');
   await upgrade.query(`ALTER TABLE transacciones DROP CONSTRAINT transacciones_estado_pago_check;
@@ -236,12 +257,12 @@ async function main() {
   if (process.env.CONTAPANAMA_POSTGRES_BROWSER === '1') {
     const webPort = await freePort();
     const webUrl = `http://127.0.0.1:${webPort}`;
-    web = spawn(process.execPath, [path.resolve(backend,'../frontend/node_modules/vite/bin/vite.js'),'--host','127.0.0.1','--port',String(webPort),'--strictPort'], {
-      cwd: path.resolve(backend,'../frontend'), env: { ...environment(), CONTAPANAMA_API_URL: baseUrl }, windowsHide: true, stdio: 'ignore',
+    web = await startService({ command: process.execPath,
+      args: [path.resolve(backend,'../frontend/node_modules/vite/bin/vite.js'),'--host','127.0.0.1','--port',String(webPort),'--strictPort'],
+      options: { cwd: path.resolve(backend,'../frontend'), env: { ...environment(), CONTAPANAMA_API_URL: baseUrl } },
+      ...startupOptions(), onOutput: logChild('vite'), onChild: child => { web = child; },
+      probe: async signal => (await fetch(webUrl, { signal })).ok,
     });
-    let ready = false;
-    for (let i=0;i<120;i++) { try { ready=(await fetch(webUrl)).ok; if(ready)break; } catch (_) {} await delay(250); }
-    assert(ready,'Disposable SQL frontend did not start');
     const output = await run(process.execPath, [path.join(backend, '../frontend/test/payments.browser.cjs')], {
       env: { ...environment(), CONTAPANAMA_DISPOSABLE_PG_TEST: '1', CONTAPANAMA_PG_QA_API: baseUrl,
         CONTAPANAMA_WEB_URL: webUrl, CONTAPANAMA_POSTGRES_QA_OUTPUT: process.env.CONTAPANAMA_POSTGRES_QA_OUTPUT || path.join(temp,'browser') },
@@ -284,15 +305,7 @@ async function main() {
     },
   });
   if (Number(process.env.CONTAPANAMA_PG_BENCH) > 0) {
-    await require('./journalBench.scenario')({ request, check, documents: Number(process.env.CONTAPANAMA_PG_BENCH) });
-  }
-  if (process.env.CONTAPANAMA_JOURNAL_SYNC === 'shadow') {
-    const summary = (await db.query(`SELECT accion,count(*)::int AS total FROM audit_events
-      WHERE accion IN ('journal_shadow_match','journal_shadow_divergence','journal_shadow_error')
-      AND usuario_id IN (SELECT id FROM usuarios WHERE nombre <> 'QA Shadow') GROUP BY accion ORDER BY accion`)).rows;
-    assert(summary.some(r=>r.accion==='journal_shadow_match'&&r.total>0));
-    assert(!summary.some(r=>r.accion!=='journal_shadow_match'));
-    check('shadow plans match across real SQL scenarios; no unforced divergence or hidden fallback error', { summary });
+    report.benchmark = await require('./helpers/journalBenchmark')({ request, check, documents: Number(process.env.CONTAPANAMA_PG_BENCH) });
   }
   const resilienceCheck = await require('./journalResilience.scenario')({ request, requestRaw, authHeaders, db, check,
     restartApi: async extraEnv => { await stopApi(); await startApi('contapanama_qa', 'America/Panama', extraEnv); },
@@ -315,6 +328,20 @@ async function main() {
   assert.deepEqual(await request(legacyEntityCheck.endpoint, { headers: legacyEntityCheck.headers }), legacyEntityCheck.expected);
   check('payment history and civil dates survive API restart in another timezone');
   await stopApi();
+  if (process.env.CONTAPANAMA_JOURNAL_SYNC === 'shadow') {
+    const summary = (await db.query(`SELECT accion,count(*)::int AS total FROM audit_events
+      WHERE accion IN ('journal_shadow_match','journal_shadow_divergence','journal_shadow_error')
+      AND usuario_id IN (SELECT id FROM usuarios WHERE nombre <> 'QA Shadow') GROUP BY accion ORDER BY accion`)).rows;
+    assert(summary.some(r=>r.accion==='journal_shadow_match'&&r.total>0));
+    assert(!summary.some(r=>r.accion!=='journal_shadow_match'));
+    check('shadow plans match across real SQL scenarios; no unforced divergence or hidden fallback error', { summary });
+    const coverageRows = (await db.query(`SELECT despues_json FROM audit_events
+      WHERE accion='journal_shadow_coverage'
+      AND usuario_id IN (SELECT id FROM usuarios WHERE nombre <> 'QA Shadow')`)).rows;
+    report.shadow_coverage = require('./helpers/shadowCoverage').summarizeCoverage(coverageRows.map(row => row.despues_json));
+    assert.equal(report.shadow_coverage.compared, summary.find(r=>r.accion==='journal_shadow_match').total);
+    check('normal shadow coverage: total = compared + fallback; zero divergence', report.shadow_coverage);
+  }
   const before = await snapshot(db);
   await db.query('DROP TRIGGER trg_asientos_upd ON asientos_contables');
   await run(process.execPath, ['db/migrate.js', '--apply']);
@@ -354,12 +381,11 @@ async function main() {
   check('pg_dump and pg_restore: identical rows in every public table and live payment API', {
     tables: Object.fromEntries(Object.entries(before).map(([table, rows]) => [table, rows.length])),
   });
-  assert.equal(fingerprint(), beforeReview, 'Review data changed during isolated tests; investigate before proceeding');
-  check('review data file unchanged', { sha256: beforeReview });
+  check('only disposable PostgreSQL fixtures used; review data was not opened');
 }
 
 async function cleanup() {
-  if (web && web.exitCode === null && web.signalCode === null) await new Promise(resolve => { web.once('exit',resolve); web.kill(); });
+  await stop(web);
   await stopApi();
   for (const client of clients) await client.end().catch(() => {});
   if (!temp) return;
@@ -368,6 +394,7 @@ async function cleanup() {
     await stopCluster();
   }
   assert(!fs.existsSync(path.join(dataDir, 'postmaster.pid')), 'Cluster still running; do not delete its files');
+  if (fs.existsSync(clusterLog())) fs.copyFileSync(clusterLog(), path.join(outputDirectory, 'postgres.log'));
   fs.rmSync(temp, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
   check('test API and cluster stopped; disposable directory removed');
 }
@@ -384,13 +411,12 @@ async function cleanup() {
   } finally {
     try { await cleanup(); }
     catch (error) { report.passed = false; report.cleanup_error = clean(error.stack); console.error(report.cleanup_error); process.exitCode = 1; }
+    try {
+      assert.deepEqual(fileMetadata(reviewFile), reviewMetadataBefore);
+      check('review file metadata unchanged (lstat only; not a content fingerprint)');
+    } catch (error) { report.passed = false; report.metadata_error = error.message; process.exitCode = 1; }
     report.finished_at = new Date().toISOString();
-    if (process.env.CONTAPANAMA_POSTGRES_QA_OUTPUT) {
-      const output = path.resolve(process.env.CONTAPANAMA_POSTGRES_QA_OUTPUT);
-      fs.mkdirSync(output, { recursive: true });
-      fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify(report, null, 2));
-      // The console shows only the tail; keep the whole API log for diagnosis.
-      fs.writeFileSync(path.join(output, 'api.log'), clean(apiOutput));
-    }
+    fs.writeFileSync(path.join(outputDirectory, 'results.json'), JSON.stringify(report, null, 2));
+    fs.writeFileSync(path.join(outputDirectory, 'api.log'), clean(apiOutput));
   }
 })();
