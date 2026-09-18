@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>HISTORICO / NO VIGENTE - Crisis DGI / e-Tax — TikTok 9:16</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:1080px; height:1920px; overflow:hidden; background:#06070b; }
+  body { font-family:"Liberation Sans","DejaVu Sans",Arial,sans-serif; color:#fff;
+         -webkit-font-smoothing:antialiased; }
+
+  #stage { position:relative; width:1080px; height:1920px; overflow:hidden; }
+
+  /* ---------- fondo ---------- */
+  #bg { position:absolute; inset:0; background:#080910; }
+  .blob { position:absolute; border-radius:50%; filter:blur(130px); }
+  #blobA { width:940px; height:940px; background:#7f1d1d; opacity:.62; }
+  #blobB { width:780px; height:780px; background:#78350f; opacity:.42; }
+  #blobC { width:620px; height:620px; background:#1e3a8a; opacity:.34; }
+  #grid { position:absolute; inset:0; opacity:.14;
+    background-image:linear-gradient(rgba(255,255,255,.09) 1px,transparent 1px),
+                     linear-gradient(90deg,rgba(255,255,255,.09) 1px,transparent 1px);
+    background-size:96px 96px;
+    -webkit-mask-image:radial-gradient(72% 55% at 50% 44%,#000 0%,transparent 78%);
+    mask-image:radial-gradient(72% 55% at 50% 44%,#000 0%,transparent 78%); }
+  #vignette { position:absolute; inset:0;
+    background:radial-gradient(120% 78% at 50% 44%,rgba(0,0,0,0) 28%,rgba(0,0,0,.8) 100%); }
+
+  /* ---------- cromo persistente ---------- */
+  #progress { position:absolute; top:0; left:0; height:9px; width:0;
+    background:linear-gradient(90deg,#dc2626,#f59e0b); }
+  #brand { position:absolute; top:72px; left:88px; display:flex; align-items:center; gap:16px; }
+  #brandDot { width:20px; height:20px; border-radius:6px; background:#ef4444;
+    box-shadow:0 0 24px rgba(239,68,68,.95); }
+  #brandTxt { font-size:29px; font-weight:700; letter-spacing:.1em; color:#94a3b8; }
+  /* bottom:400 mantiene la fuente fuera de la zona que tapa la UI de TikTok */
+  #source { position:absolute; bottom:400px; left:88px; right:88px;
+    font-size:26px; color:#64748b; letter-spacing:.04em; }
+
+  /* ---------- escenas ---------- */
+  .scene { position:absolute; inset:0; display:none; }
+  .inner { position:absolute; left:88px; right:88px; top:400px; }
+
+  .tag { display:inline-block; font-size:30px; font-weight:700; letter-spacing:.2em;
+    color:#fecaca; background:rgba(220,38,38,.24); border:1px solid rgba(248,113,113,.55);
+    padding:16px 28px; border-radius:999px; margin-bottom:40px; }
+  .kicker { font-size:33px; font-weight:700; letter-spacing:.22em; color:#f59e0b; margin-bottom:32px; }
+  .kicker.red { color:#f87171; } .kicker.blue { color:#60a5fa; }
+
+  .h1 { font-size:112px; font-weight:700; line-height:1.03; letter-spacing:-.035em; }
+  .h2 { font-size:88px; font-weight:700; line-height:1.06; letter-spacing:-.03em; }
+  .sub { font-size:46px; color:#cbd5e1; line-height:1.32; margin-top:38px; }
+  .red { color:#f87171; } .amber { color:#fbbf24; }
+
+  /* ---------- cita ---------- */
+  .quote { margin-top:64px; border-left:8px solid #dc2626; padding:14px 0 14px 40px; }
+  .quoteTxt { font-size:56px; line-height:1.28; font-style:italic; color:#f1f5f9; }
+  .quoteBy { font-size:30px; color:#94a3b8; margin-top:30px; line-height:1.4; }
+
+  /* ---------- cifras ---------- */
+  .stats { margin-top:60px; display:flex; flex-direction:column; gap:26px; }
+  .stat { background:rgba(15,18,28,.86); border:1px solid rgba(148,163,184,.2);
+    border-radius:32px; padding:38px 42px; display:flex; align-items:center; gap:36px; }
+  .statNum { font-size:82px; font-weight:700; letter-spacing:-.03em; color:#fca5a5;
+    font-variant-numeric:tabular-nums; flex:none; min-width:290px; }
+  .statTxt { font-size:36px; color:#cbd5e1; line-height:1.28; }
+  .foot { font-size:28px; color:#64748b; margin-top:34px; }
+
+  /* ---------- listas ---------- */
+  .list { margin-top:60px; display:flex; flex-direction:column; gap:24px; }
+  .item { background:rgba(15,18,28,.86); border:1px solid rgba(148,163,184,.2);
+    border-radius:30px; padding:34px 40px; display:flex; align-items:flex-start; gap:28px; }
+  .bullet { width:52px; height:52px; border-radius:16px; flex:none;
+    display:flex; align-items:center; justify-content:center;
+    font-size:30px; font-weight:700; color:#fff; }
+  .b-red { background:linear-gradient(140deg,#dc2626,#991b1b); }
+  .b-amber { background:linear-gradient(140deg,#f59e0b,#b45309); }
+  .b-blue { background:linear-gradient(140deg,#3b82f6,#1e40af); }
+  .b-green { background:linear-gradient(140deg,#22c55e,#15803d); }
+  .itemTxt { font-size:40px; color:#e2e8f0; line-height:1.26; }
+  .itemMeta { font-size:31px; color:#8b9bb0; margin-top:12px; line-height:1.3; }
+
+  /* ---------- CTA ---------- */
+  .cta { position:absolute; left:88px; right:88px; top:520px; text-align:center; }
+  .avatar { width:180px; height:180px; margin:0 auto; border-radius:52px;
+    background:linear-gradient(140deg,#dc2626,#f59e0b);
+    display:flex; align-items:center; justify-content:center;
+    font-size:76px; font-weight:700; letter-spacing:-.03em;
+    box-shadow:0 0 80px rgba(220,38,38,.6); }
+  .ctaName { font-size:76px; font-weight:700; letter-spacing:-.03em; margin-top:48px; line-height:1.12; }
+  .ctaRole { font-size:36px; color:#94a3b8; margin-top:22px; line-height:1.45; }
+  .wa { display:inline-flex; align-items:center; gap:20px; margin-top:52px;
+    background:linear-gradient(135deg,#16a34a,#15803d); border-radius:999px;
+    padding:30px 46px; font-size:44px; font-weight:700;
+    box-shadow:0 26px 60px rgba(22,163,74,.4); }
+  .waIcon { width:52px; height:52px; border-radius:50%; background:rgba(255,255,255,.24);
+    display:flex; align-items:center; justify-content:center; font-size:30px; }
+  .ctaWeb { font-size:40px; color:#fbbf24; font-weight:700; margin-top:40px; }
+</style>
+</head>
+<body>
+<div role="note" style="position:fixed;top:200px;left:40px;right:40px;z-index:9999;background:#fff;color:#111;text-align:center;padding:12px;font:700 25px Arial,sans-serif;pointer-events:none">ARCHIVO HISTORICO / NO VIGENTE<br>Plantilla tecnica - requiere revision CPA</div>
+<div id="stage">
+  <div id="bg">
+    <div class="blob" id="blobA"></div>
+    <div class="blob" id="blobB"></div>
+    <div class="blob" id="blobC"></div>
+    <div id="grid"></div>
+    <div id="vignette"></div>
+  </div>
+
+  <div id="brand"><div id="brandDot"></div><div id="brandTxt">PROFESIONAL CPA · CPA</div></div>
+  <div id="progress"></div>
+  <div id="source">Fuente: MEF (comunicado 5 ago 2026) · Ministerio Público</div>
+
+  <!-- 1 · GANCHO -->
+  <section class="scene" id="s1">
+    <div class="inner">
+      <div data-stag><span class="tag">ALERTA FISCAL · PANAMÁ</span></div>
+      <div class="h1">
+        <span style="display:block" data-stag>Congelaron</span>
+        <span style="display:block" data-stag>créditos fiscales</span>
+        <span style="display:block" data-stag>en <span class="red">Panamá</span>.</span>
+      </div>
+      <div class="sub" data-stag>Y el sistema e-Tax se reemplaza completo.</div>
+    </div>
+  </section>
+
+  <!-- 2 · QUÉ PASÓ -->
+  <section class="scene" id="s2">
+    <div class="inner">
+      <div class="kicker red" data-stag>QUÉ PASÓ</div>
+      <div class="h2" data-stag>Un esquema de<br>fraude dentro<br>de la DGI.</div>
+      <div class="quote" data-stag>
+        <div class="quoteTxt">“Fue un esquema que durante años burló los controles.”</div>
+        <div class="quoteBy">Felipe Chapman, ministro de Economía y Finanzas<br>Comunicado del MEF · 5 de agosto de 2026</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 · LAS CIFRAS -->
+  <section class="scene" id="s3">
+    <div class="inner">
+      <div class="kicker" data-stag>LAS CIFRAS</div>
+      <div class="stats">
+        <div class="stat" data-stag>
+          <div class="statNum" id="statMonto">$0 MM</div>
+          <div class="statTxt">de lesión patrimonial estimada al Estado</div>
+        </div>
+        <div class="stat" data-stag>
+          <div class="statNum" id="statImput">0</div>
+          <div class="statTxt">personas imputadas en la investigación</div>
+        </div>
+        <div class="stat" data-stag>
+          <div class="statNum" style="font-size:56px; color:#fbbf24">Pandora</div>
+          <div class="statTxt">la operación que destapó el caso</div>
+        </div>
+      </div>
+      <div class="foot" data-stag>Cifras del Ministerio Público, investigación en curso.</div>
+    </div>
+  </section>
+
+  <!-- 4 · MEDIDAS -->
+  <section class="scene" id="s4">
+    <div class="inner">
+      <div class="kicker red" data-stag>LO QUE ORDENÓ EL MEF</div>
+      <div class="list">
+        <div class="item" data-stag>
+          <div class="bullet b-red">1</div>
+          <div><div class="itemTxt">Separación de los funcionarios vinculados</div>
+               <div class="itemMeta">Con acciones penales en curso</div></div>
+        </div>
+        <div class="item" data-stag>
+          <div class="bullet b-amber">2</div>
+          <div><div class="itemTxt">Congelamiento de los créditos fiscales bajo sospecha</div>
+               <div class="itemMeta">Trámites detenidos mientras avanza la investigación</div></div>
+        </div>
+        <div class="item" data-stag>
+          <div class="bullet b-blue">3</div>
+          <div><div class="itemTxt">Auditoría integral de la Contraloría</div>
+               <div class="itemMeta">Revisión completa de la institución</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 · NUEVO SISTEMA -->
+  <section class="scene" id="s5">
+    <div class="inner">
+      <div class="kicker blue" data-stag>LO QUE VIENE</div>
+      <div class="h2" data-stag>Adiós al e-Tax<br>como lo conoces.</div>
+      <div class="list">
+        <div class="item" data-stag>
+          <div class="bullet b-green">✓</div>
+          <div class="itemTxt">Trazabilidad digital obligatoria</div>
+        </div>
+        <div class="item" data-stag>
+          <div class="bullet b-green">✓</div>
+          <div class="itemTxt">Registro inalterable y seguimiento en tiempo real</div>
+        </div>
+        <div class="item" data-stag>
+          <div class="bullet b-green">✓</div>
+          <div class="itemTxt">Sin procesos manuales discrecionales</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 · ¿TE AFECTA? -->
+  <section class="scene" id="s6">
+    <div class="inner">
+      <div class="h2" data-stag>¿Y a ti<br>te afecta?</div>
+      <div class="list">
+        <div class="item" data-stag>
+          <div class="bullet b-amber">?</div>
+          <div><div class="itemTxt">¿Crédito fiscal de ITBMS o renta en trámite?</div>
+               <div class="itemMeta">Puede estar demorado. Hay que darle seguimiento activo.</div></div>
+        </div>
+        <div class="item" data-stag>
+          <div class="bullet b-blue">?</div>
+          <div><div class="itemTxt">¿Declaras por e-Tax 2.0?</div>
+               <div class="itemMeta">El MEF garantizó continuidad, pero viene una transición.</div></div>
+        </div>
+        <div class="item" data-stag>
+          <div class="bullet b-red">!</div>
+          <div><div class="itemTxt">Los vencimientos siguen igual</div>
+               <div class="itemMeta">No se ha anunciado ninguna prórroga. El 430 se presenta igual.</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 · QUÉ HACER -->
+  <section class="scene" id="s7">
+    <div class="inner">
+      <div class="kicker" data-stag>QUÉ HACER ESTA SEMANA</div>
+      <div class="list">
+        <div class="item" data-stag>
+          <div class="bullet b-green">1</div>
+          <div class="itemTxt">Verifica el estado de tus créditos fiscales</div>
+        </div>
+        <div class="item" data-stag>
+          <div class="bullet b-green">2</div>
+          <div class="itemTxt">Guarda evidencia de cada trámite presentado</div>
+        </div>
+        <div class="item" data-stag>
+          <div class="bullet b-green">3</div>
+          <div class="itemTxt">No dejes tus declaraciones para el último día</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 · CTA -->
+  <section class="scene" id="s8">
+    <div class="cta">
+      <div class="avatar" data-stag>OM</div>
+      <div class="ctaName" data-stag>PROFESIONAL CPA</div>
+      <div class="ctaRole" data-stag>Contador Público Autorizado<br>Licencia LICENCIA_POR_CONFIGURAR · Panamá</div>
+      <div data-stag><div class="wa"><div class="waIcon">✆</div>WhatsApp CONTACTO_POR_CONFIGURAR</div></div>
+      <div class="ctaWeb" data-stag>SITIO_POR_CONFIGURAR</div>
+    </div>
+  </section>
+</div>
+
+<script>
+/* Línea de tiempo determinista: renderFrame(tMs) pinta el fotograma exacto. */
+const clamp = (v,a,b) => v<a?a:v>b?b:v;
+const lerp  = (a,b,u) => a+(b-a)*u;
+const outCubic = u => 1-Math.pow(1-u,3);
+const inOut    = u => u<.5 ? 4*u*u*u : 1-Math.pow(-2*u+2,3)/2;
+const win = (t,s,e) => clamp((t-s)/(e-s),0,1);
+
+const SCENES = [
+  { id:'s1', start: 0.00, end: 3.80 },
+  { id:'s2', start: 3.80, end: 8.60 },
+  { id:'s3', start: 8.60, end:13.20 },
+  { id:'s4', start:13.20, end:18.20 },
+  { id:'s5', start:18.20, end:22.80 },
+  { id:'s6', start:22.80, end:27.80 },
+  { id:'s7', start:27.80, end:31.80 },
+  { id:'s8', start:31.80, end:36.50 },
+];
+const DURATION = SCENES[SCENES.length-1].end;
+
+const nodes = {};
+SCENES.forEach(s => {
+  const root = document.getElementById(s.id);
+  nodes[s.id] = { root, stag: Array.from(root.querySelectorAll('[data-stag]')) };
+});
+
+function envelope(scene, lt, dur) {
+  const IN = 0.50, OUT = 0.30;
+  const appear = outCubic(win(lt, 0, IN));
+  const leave  = inOut(win(lt, dur-OUT, dur));
+  scene.root.style.opacity = String(appear * (1-leave));
+  scene.root.style.transform =
+    `translateY(${(1-appear)*32 - leave*44}px) scale(${lerp(.986,1,appear) - leave*.02})`;
+}
+
+function stagger(scene, lt, { delay=.14, step=.12, rise=46, dur=.6 } = {}) {
+  scene.stag.forEach((el, i) => {
+    const u = outCubic(win(lt, delay+i*step, delay+i*step+dur));
+    el.style.opacity = String(u);
+    el.style.transform = `translateY(${(1-u)*rise}px)`;
+    el.style.filter = u < 1 ? `blur(${(1-u)*7}px)` : 'none';
+  });
+}
+
+function renderFrame(tMs) {
+  const t = tMs/1000, p = t/DURATION;
+
+  document.getElementById('blobA').style.transform =
+    `translate(${lerp(-280,300,inOut(p))}px, ${lerp(60,1020,p)}px)`;
+  document.getElementById('blobB').style.transform =
+    `translate(${lerp(640,-160,p)}px, ${lerp(1220,300,inOut(p))}px)`;
+  document.getElementById('blobC').style.transform =
+    `translate(${lerp(140,720,inOut(p))}px, ${lerp(1600,860,p)}px)`;
+
+  document.getElementById('progress').style.width = (p*1080)+'px';
+
+  const bu = outCubic(win(t,.15,.85));
+  const brand = document.getElementById('brand');
+  brand.style.opacity = String(bu*.92);
+  brand.style.transform = `translateX(${(1-bu)*-24}px)`;
+  // la fuente aparece a partir de la escena 2 y se mantiene
+  document.getElementById('source').style.opacity = String(outCubic(win(t,4.2,5.0))*.85);
+
+  SCENES.forEach(s => {
+    const active = t >= s.start && t < s.end;
+    const scene = nodes[s.id];
+    scene.root.style.display = active ? 'block' : 'none';
+    if (!active) return;
+
+    const lt = t - s.start, dur = s.end - s.start;
+    envelope(scene, lt, dur);
+
+    switch (s.id) {
+      case 's1': {
+        stagger(scene, lt, { delay:.08, step:.15, rise:56 });
+        // el punto rojo de alerta late durante el gancho
+        const pulse = 1 + .4*Math.sin(lt*8);
+        const d = document.getElementById('brandDot');
+        d.style.transform = `scale(${clamp(pulse,.8,1.45)})`;
+        break;
+      }
+      case 's3': {
+        stagger(scene, lt, { delay:.08, step:.15, rise:48 });
+        const u = inOut(win(lt, .55, 2.10));
+        document.getElementById('statMonto').textContent = '$' + Math.round(40*u) + ' MM';
+        document.getElementById('statImput').textContent = String(Math.round(17*u));
+        break;
+      }
+      case 's8': {
+        stagger(scene, lt, { delay:.10, step:.14, rise:42 });
+        const g = .75 + .25*Math.sin(lt*3.2);
+        document.querySelector('.avatar').style.boxShadow =
+          `0 0 ${80*g}px rgba(220,38,38,${.45+.3*g})`;
+        break;
+      }
+      default: stagger(scene, lt, { delay:.08, step:.14, rise:46 });
+    }
+  });
+}
+
+window.renderFrame = renderFrame;
+window.VIDEO_DURATION = DURATION;
+renderFrame(0);
+</script>
+</body>
+</html>
