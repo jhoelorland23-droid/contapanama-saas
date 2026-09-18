@@ -366,9 +366,6 @@ const AuthScreen = () => {
           )}
         </div>
 
-        {import.meta.env.DEV && <div style={{marginTop:24,padding:"12px 16px",background:C.infoBg,borderRadius:8,fontSize:12,color:C.infoText,overflowWrap:"anywhere"}}>
-          <strong>{import.meta.env.VITE_SQL_REVIEW === '1' ? 'Revisión SQL, datos sintéticos:' : 'Demo:'}</strong> {reviewDemo.email} / {reviewDemo.password}
-        </div>}
       </form>
     </div>
   );

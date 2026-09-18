@@ -14,7 +14,9 @@ async function run() {
   page.on('pageerror', error => errors.push(error.message));
   const out = path.resolve(__dirname, '../../outputs/period-accounting-qa');
   fs.mkdirSync(out, { recursive: true });
-  const invoice = { id: 'qa-period-ui', fecha: '2025-12-20', periodo: '2025-12', tipo: 'ingreso', descripcion: 'QA honorarios diciembre', monto: 1000, itbms: 70, estado_pago: 'pendiente', banco: '', cliente_nombre: 'Cliente prueba periodos', categoria_contable: 'honorarios' };
+  const clientId = randomUUID();
+  const account = { id: randomUUID(), cliente_id: clientId, nombre: 'QA periodos', banco: 'BAC', numero: 'QA-0001', moneda: 'USD', activa: true };
+  const invoice = { id: 'qa-period-ui', cliente_id: clientId, fecha: '2025-12-20', periodo: '2025-12', tipo: 'ingreso', descripcion: 'QA honorarios diciembre', monto: 1000, itbms: 70, estado_pago: 'pendiente', banco: '', cliente_nombre: 'Cliente prueba periodos', categoria_contable: 'honorarios' };
   const documents = [invoice];
   let payments = 0;
   let rejectPayment = true;
@@ -30,6 +32,7 @@ async function run() {
         const body = request.postDataJSON();
         assert.equal(body.fecha, '2026-01-08');
         assert.equal(body.banco, 'BAC');
+        assert.equal(body.cuenta_bancaria_id, account.id);
         assert.equal(body.metodo_pago, 'transferencia');
         assert.equal(body.referencia, 'QA-COBRO-8');
         assert.equal(Number(body.importe), 1070);
@@ -40,6 +43,7 @@ async function run() {
         return send(invoice);
       }
       if (routePath === '/api/transacciones') return send({ data: documents, total: documents.length });
+      if (routePath === '/api/cuentas-bancarias') return send({ data: [account] });
       if (routePath === '/api/transacciones/resumen') return send({ total_ingresos: 1000, total_gastos: 0, utilidad_neta: 1000 });
       if (routePath === '/api/contabilidad/cierre-estado') return send({ data: { estado: 'cerrado' } });
       if (routePath === '/api/contabilidad/cierre') return send(engine.closingReview(documents, engine.buildJournal(documents), scope));
@@ -63,9 +67,11 @@ async function run() {
     assert.equal(await collect.isEnabled(), true);
     await collect.click();
     assert.equal(await page.getByLabel('Fecha del cobro').inputValue(), '');
-    assert.equal(await page.getByLabel('Banco', { exact: true }).inputValue(), '');
+    // Payments now reference a client-owned account, not a bank-name-only selector.
+    const paymentAccount = page.getByRole('combobox', { name: 'Cuenta bancaria del pago', exact: true });
+    assert.equal(await paymentAccount.inputValue(), '');
     await page.getByLabel('Fecha del cobro').fill('2026-01-08');
-    await page.getByLabel('Banco', { exact: true }).selectOption('BAC');
+    await paymentAccount.selectOption(account.id);
     await page.getByLabel('Referencia del pago').fill('QA-COBRO-8');
     await page.getByRole('button', { name: 'Registrar cobro', exact: true }).click();
     await page.getByRole('alert').filter({ hasText: 'El periodo del pago esta cerrado.' }).waitFor();
@@ -97,7 +103,7 @@ async function run() {
     await page.getByText('Balance de comprobaci\u00f3n', { exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: path.join(out, 'balance-desktop.png') });
     assert.deepEqual(errors, []);
-    console.log('Period UI passed: closed document, explicit date/bank, payment error and retry, mobile form, historical balance and running-balance CSV');
+    console.log('Period UI passed: closed document, explicit date/client account, payment error and retry, mobile form, historical balance and running-balance CSV');
   } finally {
     await browser.close();
   }

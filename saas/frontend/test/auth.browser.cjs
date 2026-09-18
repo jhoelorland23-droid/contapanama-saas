@@ -8,6 +8,10 @@ async function run() {
   const context = await browser.newContext({ viewport: { width: 1366, height: 900 } });
   const page = await context.newPage();
   const errors = [];
+  let loginRequests = 0;
+  page.on('request', request => {
+    if (new URL(request.url()).pathname === '/api/auth/login') loginRequests++;
+  });
   page.on('pageerror', error => errors.push(error.message));
   const base = process.env.CONTAPANAMA_WEB_URL || 'http://localhost:5173';
   const out = path.resolve(__dirname, '../../outputs/access-qa');
@@ -16,6 +20,18 @@ async function run() {
   try {
     await page.goto(base, { waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: 'Entrar', exact: true }).waitFor();
+    if (process.env.CONTAPANAMA_EXPECT_DEV === '1') {
+      assert.equal(await page.locator('script[src*="/@vite/client"]').count(), 1, 'Regression must exercise development rendering');
+    }
+    assert.deepEqual(errors, [], 'Login must render without ReferenceError');
+    assert.equal(await page.getByLabel('Correo electr\u00f3nico').inputValue(), '');
+    assert.equal(Boolean(await page.getByLabel('Contrase\u00f1a', { exact: true }).inputValue()), false);
+    assert.equal(await sessionSaved(), false);
+    assert.equal(loginRequests, 0, 'Fresh context must not log in automatically');
+    assert.equal(await page.getByRole('button', { name: /demo/i }).count(), 0);
+    assert.equal(/demo:/i.test(await page.locator('body').innerText()), false);
+    assert.equal((await page.locator('body').innerText()).includes(qaCredentials.password), false);
+    console.log('PASS: reviewDemo regression: blank credentials, no automatic login or demo password, no ReferenceError');
     await page.route('**/api/auth/login', route => route.fulfill({
       status: 401, json: { error: 'Credenciales incorrectas' },
     }));
@@ -64,7 +80,7 @@ async function run() {
     await page.getByLabel('Contrase\u00f1a', { exact: true }).fill(qaCredentials.password);
     await page.getByRole('button', { name: 'Entrar', exact: true }).click();
     await waitForApp();
-    console.log('PASS: expired session returns to login; demo access recovers');
+    console.log('PASS: expired session returns to login; explicit login recovers');
     assert.deepEqual(errors, []);
     console.log('Browser access checks passed with no JavaScript errors');
   } finally {
